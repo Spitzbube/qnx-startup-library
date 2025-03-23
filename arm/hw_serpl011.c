@@ -33,8 +33,6 @@
 #include "startup.h"
 #include <arm/pl011.h>
 
-#define VIRT_UART0_BASE  0x09000000 //PL011
-
 static void
 parse_line(unsigned channel, const char *line, unsigned *baud, unsigned *clk)
 {
@@ -42,8 +40,7 @@ parse_line(unsigned channel, const char *line, unsigned *baud, unsigned *clk)
 	 * Get device base address and register stride
 	 */
 	if (*line != '.' && *line != '\0') {
-		//dbg_device[channel].base = strtopaddr(line, (char **)&line, 16);
-		dbg_device[channel].base = VIRT_UART0_BASE;
+		dbg_device[channel].base = strtopaddr(line, (char **)&line, 16);
 		if (*line == '^')
 			dbg_device[channel].shift = strtoul(line+1, (char **)&line, 0);
 	}
