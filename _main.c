@@ -119,9 +119,7 @@ _main(void) {
 	//
 	smp_hook_rtn();
 
-#if 0
 	startnext();
-#endif
 }
 
 static void
