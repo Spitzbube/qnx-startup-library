@@ -101,7 +101,6 @@ _main(void) {
 
 	main(_argc, _argv, envv);
 
-#if 0	
 	//
 	// Tell the mini-drivers that the next time they're called, they're
 	// going to be in the kernel. Also flip the handler & data pointers
@@ -109,6 +108,7 @@ _main(void) {
 	//
 	mdriver_hook();
 
+#if 0	
 	//
 	// Copy the local version of the system page we've built to the real
 	// system page location we allocated in init_system_private().
@@ -132,7 +132,6 @@ hook_dummy(void) {
 void						(*smp_hook_rtn)(void) = hook_dummy;
 #endif
 void						(*mdriver_check)(void) = hook_dummy;
-#if 0
 void						(*mdriver_hook)(void) = hook_dummy;
 
 
@@ -142,13 +141,10 @@ int errno;
 int *
 __get_errno_ptr(void) { return &errno; }
 
-
 size_t
 __stackavail(void) { return (size_t)~0; }
 
 void
 abort(void) { crash("ABORT"); for( ;; ) {} }
-
-#endif
 
 __SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/_main.c $ $Rev: 655042 $" );
