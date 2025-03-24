@@ -108,7 +108,6 @@ _main(void) {
 	//
 	mdriver_hook();
 
-#if 0	
 	//
 	// Copy the local version of the system page we've built to the real
 	// system page location we allocated in init_system_private().
@@ -120,6 +119,7 @@ _main(void) {
 	//
 	smp_hook_rtn();
 
+#if 0
 	startnext();
 #endif
 }
@@ -128,9 +128,7 @@ static void
 hook_dummy(void) {
 }
 
-#if 0
 void						(*smp_hook_rtn)(void) = hook_dummy;
-#endif
 void						(*mdriver_check)(void) = hook_dummy;
 void						(*mdriver_hook)(void) = hook_dummy;
 
