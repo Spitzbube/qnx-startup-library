@@ -91,8 +91,7 @@ patch_id:
 	 */
 	ldr		r1, =gic_dist_base
 	mov		r0, #ARM_GICD_SIZE
-	ldr		r1, [r1]
-	bl		callout_io_map
+	bl		callout_io_map_indirect
 	str		r0, [r4, #OFF_GIC_DIST]	
 
 	/*
@@ -100,8 +99,7 @@ patch_id:
 	 */
 	ldr		r1, =gic_cpu_base
 	mov		r0, #ARM_GICC_SIZE
-	ldr		r1, [r1]
-	bl		callout_io_map
+	bl		callout_io_map_indirect
 	str		r0, [r4, #OFF_GIC_CPU]	
 
 	ldmia	sp!,{r4,pc}
@@ -300,3 +298,11 @@ CALLOUT_START(interrupt_config_gic, 0, 0)
 	movne	r0, #0
 	mov		pc, lr
 CALLOUT_END(interrupt_config_gic)
+
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/callout_interrupt_gic.S $ $Rev: 781278 $";
+.previous
+#endif
+#endif 

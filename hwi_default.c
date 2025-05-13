@@ -34,4 +34,7 @@ hwi_default() {
 	hwi_alloc_item(HWI_TAG_INFO(bus), HWI_ITEM_BUS_UNKNOWN, hwi_tag2off(tag));
 }
 
-__SRCVERSION("hwi_default.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/hwi_default.c $ $Rev: 680332 $")
+#endif

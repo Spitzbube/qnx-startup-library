@@ -57,7 +57,7 @@ jtag_store_syspage_addr(void) {
 	// read by a JTAG.
 	// Only save the system page address if some memory has been reserved
 	if(jtag_syspage_address != NULL_PADDR) {
-		paddr32_t	*p;
+		paddr_t	*p;
 
 		p = startup_memory_map(sizeof(syspage_paddr), jtag_syspage_address, PROT_READ|PROT_WRITE);
 		*p = syspage_paddr;
@@ -65,4 +65,7 @@ jtag_store_syspage_addr(void) {
 	}
 }
 
-__SRCVERSION("jtag.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/jtag.c $ $Rev: 780356 $")
+#endif

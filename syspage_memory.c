@@ -20,9 +20,6 @@
  */
 
 
-
-
-
 #include "startup.h"
 
 //
@@ -33,7 +30,7 @@
 static unsigned			fixed_size;
 static unsigned 		callouts_size;
 
-paddr32_t				syspage_paddr;
+PADDR_T				syspage_paddr;
 struct local_syspage	lsp;
 
 struct unknown;
@@ -75,7 +72,7 @@ grow_syspage_section(void *p, unsigned add) {
 		new = bottom + add;
 		len = lsp.syspage.p->total_size - PTR_DIFF(bottom, lsp.syspage.p);
 		memmove(new, bottom, len);
-		callout_reloc_data(bottom, len, add);
+		callout_reloc_data(bottom, len, (ptrdiff_t)add);
 		memset(bottom, 0, add);
 		sect->size += add;
 		lsp.syspage.p->total_size = new_size;
@@ -108,6 +105,11 @@ init_syspage_memory(void *base, unsigned max_size) {
 	fixed_size = spsize;
 	lsp.syspage.p->total_size = spsize;
 	lsp.syspage.p->size = max_size;
+	lsp.syspage.p->asinfo.element_size = sizeof(struct asinfo_entry);
+	lsp.syspage.p->cpuinfo.element_size = sizeof(struct cpuinfo_entry);
+	lsp.syspage.p->cacheattr.element_size = sizeof(struct cacheattr_entry);
+	lsp.syspage.p->intrinfo.element_size = sizeof(struct intrinfo_entry);
+	lsp.syspage.p->mdriver.element_size = sizeof(struct mdriver_entry);
 	set_syspage_section(&lsp.callout, sizeof(*lsp.callout.p));
 	set_syspage_section(&lsp.callin, sizeof(*lsp.callin.p));
 //	grow_syspage_section(&lsp.meminfo, sizeof(*lsp.meminfo.p));
@@ -138,22 +140,30 @@ reloc_syspage_memory(void *base, unsigned max_size) {
 
 void
 alloc_syspage_memory() {
-	struct syspage_entry	*sp;
-	paddr32_t				cpupage_paddr;
+	PADDR_T					cpupage_paddr;
 	unsigned				i;
 	struct cpupage_entry	cpu;
-	unsigned				spsize;
+
+	struct syspage_entry	*sp = lsp.syspage.p;
+
+	//figure out backware compatabilty section sizes
+	unsigned num_mdriver = lsp.mdriver.size / sizeof(struct mdriver_entry);
+	sp->old_mdriver.entry_size = num_mdriver * sizeof(struct old_mdriver_entry);
+
+	unsigned num_intrinfo = lsp.intrinfo.size / sizeof(struct intrinfo_entry);
+	sp->old_intrinfo.entry_size = num_intrinfo * sizeof(struct old_intrinfo_entry);
 
 	//figure out size of callouts
 	callouts_size = output_callouts(1);
 
+	//Figure out total size required for the system page.
 	//Allow for four more asinfo_entry's in case the syspage allocation(s)
-	//splits address range(s).
-	spsize = lsp.syspage.p->total_size
-				+ callouts_size + 4*sizeof(struct asinfo_entry);
-
-//NYI: temp hack for meminfo
-//spsize += 4*sizeof(struct meminfo_entry);
+	//splits the address range(s). 
+	unsigned spsize = sp->total_size 
+			+ sp->old_mdriver.entry_size 
+			+ sp->old_intrinfo.entry_size
+			+ callouts_size 
+			+ 4*sizeof(struct asinfo_entry);
 
 	_syspage_ptr = cpu_alloc_syspage_memory(&cpupage_paddr, &syspage_paddr, spsize);
 
@@ -161,9 +171,16 @@ alloc_syspage_memory() {
 			sp->field.entry_size = lsp.field.size;	\
 			sp->field.entry_off = PTR_DIFF(lsp.field.p, sp)
 
-	sp = lsp.syspage.p;
 	sp->size = sizeof(*lsp.syspage.p); // disallows further growing
 	sp->type = CPU_SYSPAGE_TYPE;
+
+	// Set the offsets for the backwards compatability sections
+	// Can't do it earlier since the cpu_alloc_syspage_memory() call
+	// might have to grow the asinfo section
+	sp->old_mdriver.entry_off = sp->total_size;
+	sp->total_size += sp->old_mdriver.entry_size;
+	sp->old_intrinfo.entry_off = sp->total_size;
+	sp->total_size += sp->old_intrinfo.entry_size;
 
 	INIT_ENTRY(system_private);
 	INIT_ENTRY(meminfo);
@@ -195,6 +212,43 @@ alloc_syspage_memory() {
 
 	//write the callouts to the syspage.
 	output_callouts(0);
+
+	// Initialize backwards compatability for array sections
+	sp->old_asinfo.entry_off     = sp->asinfo.entry_off;
+	sp->old_asinfo.entry_size    = sp->asinfo.entry_size;
+	sp->old_cpuinfo.entry_off    = sp->cpuinfo.entry_off;
+	sp->old_cpuinfo.entry_size   = sp->cpuinfo.entry_size;
+	sp->old_cacheattr.entry_off  = sp->cacheattr.entry_off;
+	sp->old_cacheattr.entry_size = sp->cacheattr.entry_size;
+	struct old_mdriver_entry *const old_mdriver = _SYSPAGE_ENTRY(sp, old_mdriver);
+	for(i = 0; i < num_mdriver; ++i) {
+		old_mdriver[i].intr = lsp.mdriver.p[i].intr;
+		old_mdriver[i].handler32 = (uintptr_t)lsp.mdriver.p[i].handler;
+		old_mdriver[i].data32 = (uintptr_t)lsp.mdriver.p[i].data;
+		old_mdriver[i].data_paddr = lsp.mdriver.p[i].data_paddr;
+		old_mdriver[i].data_size = lsp.mdriver.p[i].data_size;
+		old_mdriver[i].name = lsp.mdriver.p[i].name;
+		old_mdriver[i].internal = lsp.mdriver.p[i].internal;
+	}
+	struct old_intrinfo_entry *const old_intrinfo = _SYSPAGE_ENTRY(sp, old_intrinfo);
+	for(i = 0; i < num_intrinfo; ++i) {
+		old_intrinfo[i].vector_base = lsp.intrinfo.p[i].vector_base;
+		old_intrinfo[i].num_vectors = lsp.intrinfo.p[i].num_vectors;
+		old_intrinfo[i].cascade_vector = lsp.intrinfo.p[i].cascade_vector;
+		old_intrinfo[i].cpu_intr_base = lsp.intrinfo.p[i].cpu_intr_base;
+		old_intrinfo[i].cpu_intr_stride = lsp.intrinfo.p[i].cpu_intr_stride;
+		old_intrinfo[i].local_stride = lsp.intrinfo.p[i].local_stride;
+		old_intrinfo[i].flags = lsp.intrinfo.p[i].flags;
+		old_intrinfo[i].id.genflags = lsp.intrinfo.p[i].id.genflags;
+		old_intrinfo[i].id.size = lsp.intrinfo.p[i].id.size;
+		old_intrinfo[i].id.rtn32 = (uintptr_t)lsp.intrinfo.p[i].id.rtn;
+		old_intrinfo[i].eoi.genflags = lsp.intrinfo.p[i].eoi.genflags;
+		old_intrinfo[i].eoi.size = lsp.intrinfo.p[i].eoi.size;
+		old_intrinfo[i].eoi.rtn32 = (uintptr_t)lsp.intrinfo.p[i].eoi.rtn;
+		old_intrinfo[i].mask32 = (uintptr_t)lsp.intrinfo.p[i].mask;
+		old_intrinfo[i].unmask32 = (uintptr_t)lsp.intrinfo.p[i].unmask;
+		old_intrinfo[i].config32 = (uintptr_t)lsp.intrinfo.p[i].config;
+	}
 }
 
 void
@@ -205,4 +259,7 @@ write_syspage_memory() {
 	cpu_write_syspage_memory(syspage_paddr, total_size, callouts_size);
 }
 
-__SRCVERSION("syspage_memory.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/syspage_memory.c $ $Rev: 780356 $")
+#endif

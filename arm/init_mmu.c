@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,61 +19,21 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
 
-paddr_t		L1_paddr;
-paddr_t		L1_vaddr;
-paddr_t		L2_paddr;
-paddr_t		startup_base;
+/*
+ * The L1/L2 paddr values are directly used by startup as pointers
+ */
+uintptr_t	L1_paddr;
+uintptr_t	L1_vaddr;
+uintptr_t	L2_paddr;
+uintptr_t	startup_base;
 unsigned	startup_size;
 
-/*
- * Create section mappings in the 1-1 mapping area for the largest RAM bank
- */
-static void
-map_1to1_ram()
-{
-	unsigned	as_off = AS_NULL_OFF;
-	unsigned	base = 0;
-	unsigned	size = 0;
-	unsigned	vaddr;
-
-	while ((as_off = as_find(as_off, "ram", 0)) != AS_NULL_OFF) {
-		struct asinfo_entry *as = (struct asinfo_entry *)((uintptr_t)lsp.asinfo.p + as_off);
-		unsigned			sz  = as->end - as->start + 1;
-
-		if (sz > size) {
-			base = (unsigned)as->start;
-			size = sz;
-		}
-	}
-	if (size == 0) {
-		crash("no ram entry in asinfo?");
-	}
-	if (base & ARM_SCMASK) {
-		if (debug_flag) {
-			kprintf("WARNING: RAM base at %x - not using 1to1 area\n", base);
-		}
-		return;
-	}
-
-	/*
-	 * Limit mapping to 256MB
-	 */
-	if (size > ARM_1TO1_SIZE) {
-		size = ARM_1TO1_SIZE;
-	}
-	size = (size + ARM_SCMASK) & ~ARM_SCMASK;
-	as_add(base, base + size - 1, AS_ATTR_RAM, "1to1", as_default());
-
-	for (vaddr = ARM_1TO1_BASE; size; vaddr += ARM_SCSIZE, base += ARM_SCSIZE, size -= ARM_SCSIZE) {
-		arm_scmap(vaddr, base, ARM_PTE_RW | ARM_PTE_CB);
-	}
-}
+uintptr_t	(*mmu_map)(uintptr_t va, paddr_t pa, size_t sz, unsigned prot);
+void		(*mmu_map_cpu)(int cpu, uintptr_t va, paddr_t pa, unsigned flags);
+void 		(*mmu_elf_map)(uintptr_t va, paddr32_t pa, size_t sz, unsigned prot);
+paddr_t		(*mmu_vaddr_to_paddr)(uintptr_t va);
 
 /*
  * Initialize page tables. This prepares the system to leap into virtual mode.
@@ -83,49 +43,14 @@ map_1to1_ram()
 void
 init_mmu(void)
 {
-	unsigned	base;
-	unsigned	ncpu = lsp.syspage.p->num_cpu;
-	unsigned	L1size = ncpu * ARM_L1_SIZE;
-	unsigned	L2size = ncpu * __PAGESIZE;
-
-	/*
-	 * Get the CPU-specific PTE descriptors
-	 */
-	arm_pte_setup();
-
-	/*
-	 * Allocate the L1 table and the "page directory" used to map L2 tables
-	 */
-	L1_paddr = calloc_ram(L1size, ARM_L1_SIZE);
-	L2_paddr = calloc_ram(L2size, __PAGESIZE);
-
-	/*
-	 * Map the "page directory" within itself
-	 */
-	arm_pdmap(ARM_PTP_BASE);
-
-	/*
-	 * Map the real L1 table
-	 */
-	L1_vaddr = arm_map(~0L, L1_paddr, L1size, ARM_MAP_NOEXEC | ARM_PTE_RW | armv_chip->pte_attr);
-	L1_paddr |= armv_chip->ttb_attr;
-
-	/*
-	 * Section map startup code to allow transition to virtual addresses.
-	 * This 1-1 mapping is also used by kdebug to access the imagefs.
-	 * procnto uses syspage->un.arm.startup_base/startup_size to unmap it.
-	 */
-	startup_base = shdr->ram_paddr & ~ARM_SCMASK;
-	startup_size = shdr->ram_size;
-	for (base = startup_base; base < startup_base + startup_size; base += ARM_SCSIZE) {
-		arm_scmap(base, base, ARM_PTE_RO);
+	if (paddr_bits > 32) {
+		init_mmu_lpae();
+	} else {
+		init_mmu_v7();
 	}
-
-	/*
-	 * Map RAM into the 1-1 mapping area
-	 */
-	map_1to1_ram();
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/init_mmu.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/init_mmu.c $ $Rev: 781531 $")
+#endif

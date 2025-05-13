@@ -108,4 +108,7 @@ hwi_grow_tag(unsigned offset, unsigned size) {
 	return(tag);
 }
 
-__SRCVERSION("hwi_alloc.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/hwi_alloc.c $ $Rev: 680332 $")
+#endif

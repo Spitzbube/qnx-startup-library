@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,10 +19,6 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
 
 /*
@@ -37,14 +33,15 @@ cpu_init_syspage_memory()
 }
 
 struct syspage_entry *
-cpu_alloc_syspage_memory(paddr32_t *cpupagep, paddr32_t *syspagep, unsigned spsize)
+cpu_alloc_syspage_memory(PADDR_T *cpupagep, PADDR_T *syspagep, unsigned spsize)
 {
 	struct syspage_entry		*sp = lsp.syspage.p;
 	struct system_private_entry	*private;
 	unsigned					size;
 	unsigned					cpsize;
-	paddr32_t					syspage_paddr;
+	PADDR_T						syspage_paddr;
 	unsigned					spacing;
+	const unsigned				ncpu = sp->num_cpu;
 
 	#define	SP_OFFSET(field)	PTR_DIFF(lsp.cpu.field.p, sp)
 	#define	INIT_ENTRY(_cpu, _field) \
@@ -52,10 +49,9 @@ cpu_alloc_syspage_memory(paddr32_t *cpupagep, paddr32_t *syspagep, unsigned spsi
 		sp->un._cpu._field.entry_off  = SP_OFFSET(_cpu##_##_field)
 
 	spsize = ROUND(spsize, sizeof(uint64_t));
-	if (sp->num_cpu == 1) {
+	if (ncpu == 1) {
 		spacing = sizeof(struct cpupage_entry);
-	}
-	else {
+	} else {
 		/*
 		 * WARNING: we assume SMP processor has physical cache.
 		 *          We allocate the cpupages in contiguous memory so that
@@ -68,7 +64,7 @@ cpu_alloc_syspage_memory(paddr32_t *cpupagep, paddr32_t *syspagep, unsigned spsi
 		spacing = __PAGESIZE;
 		spsize = ROUND(spsize, __PAGESIZE);
 	}
-	cpsize = sp->num_cpu * spacing;
+	cpsize = ncpu * spacing;
 
 	/*
 	 * Allocate the system page (and cpupage entries) and save it away.
@@ -77,50 +73,38 @@ cpu_alloc_syspage_memory(paddr32_t *cpupagep, paddr32_t *syspagep, unsigned spsi
 	size = spsize + cpsize;
 
 	syspage_paddr = alloc_ram(NULL_PADDR, size, lsp.system_private.p->pagesize);
-	if (syspage_paddr == NULL_PADDR32) {
-		crash("could not allocate 0x%l bytes for syspage/cpupage\n", size);
+	if (syspage_paddr == NULL_PADDR_STARTUP) {
+		crash("could not allocate 0x%x bytes for syspage/cpupage\n", size);
 	}
 
 	private = lsp.system_private.p;
-	private->kern_syspageptr = TOPTR(arm_map(~0L, syspage_paddr, size, ARM_MAP_SYSPAGE));
-	private->user_syspageptr = private->kern_syspageptr;
-	private->kern_cpupageptr = TOPTR((uintptr_t)private->user_syspageptr + spsize);
-	if (sp->num_cpu == 1) {
-		/*
-		 * cpupage is accessed at same virtual address as the kernel
-		 */
-		private->user_cpupageptr = private->kern_cpupageptr;
+	private->kern_syspageptr = TOPTR(mmu_map(~0L, syspage_paddr, size, PROT_READ|PROT_WRITE|PROT_EXEC));
+	private->kern_cpupageptr = TOPTR((uintptr_t)private->kern_syspageptr + spsize);
 
-		/*
-		 * FIXME: uniprocessor memmgr does not use the L2_vaddr value
-		 */
-		sp->un.arm.L2_vaddr = 0;
-	}
-	else {
+	private->user_syspageptr = TOPTR(mmu_map(~0L, syspage_paddr, size, PROT_READ|PROT_EXEC|PROT_USER));
+	private->user_cpupageptr = TOPTR((uintptr_t)private->user_syspageptr + spsize);
+	private->cpupage_spacing = spacing;
+
+	if (ncpu > 1) {
 		int			i;
 		unsigned	cpupaddr = syspage_paddr + spsize;
 
 		/*
-		 * We have mapped the trap vector page using a per-cpu page table
+		 * SMP procnto expects user cpupage to be at ARM_SMP_CPUPAGE.
+		 * Each cpu maps its own cpupage at that same virtual address.
 		 */
-		private->user_cpupageptr = TOPTR(trap_vectors + __PAGESIZE);
+		private->user_cpupageptr = TOPTR(ARM_SMP_CPUPAGE);
 
-		for (i = 0; i < sp->num_cpu; i++, cpupaddr += spacing) {
-			arm_map_cpu(i, (uintptr_t)private->user_cpupageptr, cpupaddr, ARM_MAP_SYSPAGE);
+		for (i = 0; i < ncpu; i++, cpupaddr += spacing) {
+			mmu_map_cpu(i, ARM_SMP_CPUPAGE, cpupaddr, PROT_READ|PROT_EXEC|PROT_USER);
 		}
-
-		/*
-		 * Map the page directory pages so the memmgr can keep all the cpus'
-		 * page table mappings consistent.
-		 */
-		sp->un.arm.L2_vaddr = arm_map(~0, L2_paddr, sp->num_cpu * __PAGESIZE, ARM_MAP_NOEXEC | ARM_PTE_RW | armv_chip->pte_attr);
 	}
-	private->cpupage_spacing = spacing;
 
 	*syspagep = syspage_paddr;
 	*cpupagep = syspage_paddr + spsize;
 
 	sp->un.arm.L1_vaddr = L1_vaddr;
+	sp->un.arm.L2_vaddr = mmu_map(~0, L2_paddr, ncpu * __PAGESIZE, PROT_PGTBL);
 	sp->un.arm.startup_base = startup_base;
 	sp->un.arm.startup_size = startup_size;
 
@@ -140,5 +124,7 @@ cpu_write_syspage_memory(paddr32_t sysp_paddr, unsigned sysp_size, unsigned call
 	 */
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/cpu_syspage_memory.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/cpu_syspage_memory.c $ $Rev: 781531 $")
+#endif

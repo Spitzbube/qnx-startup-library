@@ -40,6 +40,10 @@ find_startup_info( const void *start, unsigned type ) {
 		if( p->type == type ) return p;
 		p = (const void *)((const char *)p + p->size);
 	}
+	return NULL;	/* quiet compiler */
 }
 
-__SRCVERSION("startup_info.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/startup_info.c $ $Rev: 816425 $")
+#endif

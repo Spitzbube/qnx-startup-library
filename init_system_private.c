@@ -20,27 +20,12 @@
  */
 
 
-
-
-
 #include "startup.h"
 
 static const KERCALL_SEQUENCE(kercall);
 
 uintptr_t boot_vaddr_base;
 uintptr_t boot_vaddr_end;
-
-static union image_dirent *
-find_file(struct image_header *ifs_hdr, unsigned long inode) {
-	union image_dirent	*dir;
-
-	dir = (void *)((uint8_t *)ifs_hdr + ifs_hdr->dir_offset);
-   	for( ;; ) {
-		if(dir->attr.size == 0) return 0;
-		if(dir->attr.ino == inode) return dir;
-		dir = (void *)((uint8_t *)dir + dir->attr.size);
-	}
-}
 
 static void *
 bootstrap_map(uintptr_t vaddr, unsigned size) {
@@ -52,37 +37,27 @@ load_bootstraps(struct image_header *ifs_hdr,
 			struct system_private_entry *private) {
 	unsigned					i;
 	union image_dirent	 		*dir;
-	paddr32_t					base_addr;
+	paddr_t					base_addr;
 	uintptr_t					start_vaddr;
 	struct ifs_bootstrap_head	*head;
 	struct ifs_bootstrap_data	*prev = NULL;
-	int							new_style = 0;
 
-	// So startnext() can issue an error if no bootstrap exe's are found.
-	private->boot_pgm[0].entry = ~(uintptr_t)0;
 	//
 	// Load all the boot images
 	//
 	dir = (void *)((uint8_t *)ifs_hdr + ifs_hdr->dir_offset);
 	i = 0;
+	if(!(ifs_hdr->flags & IMAGE_FLAGS_INO_BITS)) {
+		crash("Image unsupported - too old");
+	}
 	for(;;) {
-		if(ifs_hdr->flags & IMAGE_FLAGS_INO_BITS) {
-			for( ;; ) {
-				if(dir->attr.size == 0) return;
-				if(dir->attr.ino & IFS_INO_BOOTSTRAP_EXE) break;
-				dir = (void *)((uint8_t *)dir + dir->attr.size);
-			}
-		} else {
-			// Backwards compatability with older images...
-			if(i >= NUM_ELTS(ifs_hdr->boot_ino)) break;
-			if(ifs_hdr->boot_ino[i] == 0) break;
-			dir = find_file(ifs_hdr, ifs_hdr->boot_ino[i]);
-			if(dir == NULL) {
-				crash("Unable to find boot process %d (inode %d)\n", i, ifs_hdr->boot_ino[i]);
-			}
+		for( ;; ) {
+			if(dir->attr.size == 0) goto done;
+			if(dir->attr.ino & IFS_INO_BOOTSTRAP_EXE) break;
+			dir = (void *)((uint8_t *)dir + dir->attr.size);
 		}
 		base_addr = shdr->image_paddr + shdr->startup_size + dir->file.offset;
-		start_vaddr = load_elf32(base_addr);
+		start_vaddr = load_elf(base_addr);
 		if(start_vaddr == ~0UL) {
 			crash("Unable to load boot process '/%s'\n", dir->file.path);
 			/*NOTREACHED*/
@@ -91,53 +66,48 @@ load_bootstraps(struct image_header *ifs_hdr,
 			crash("Unable to save boot process elf data\n");
 		}
 		private = lsp.system_private.p;
-		if(i < NUM_ELTS(private->boot_pgm)) {
-			// Backwards compatability with older images...
-			private->boot_pgm[i].base = base_addr;
-			private->boot_pgm[i].entry = start_vaddr;
-		} else if(prev == NULL) { 
-			crash("too many bootstrap executables\n");
-		}
 		if(prev != NULL) {
 			prev->next_entry = start_vaddr;
 			startup_memory_unmap(prev);
-		} else if(new_style) {
-			crash("missing bootstrap signature\n");
+		} else { 
+			first_bootstrap_start_vaddr = start_vaddr;
 		}
 		head = bootstrap_map(start_vaddr-sizeof(*head), sizeof(*head));
-		if(head->signature == IFS_BOOTSTRAP_SIGNATURE) {
-			new_style = 1;
-			prev = bootstrap_map(head->bootstrap, sizeof(*prev));
-			if(prev->args != 0) {
-				// newer style bootstrap_data
-				struct bootargs_entry	*args;
-
-				// Give board specific code a change to modify the
-				// command line arguments for this bootstrap executable
-				args = bootstrap_map(prev->args, 0x2000);
-				tweak_cmdline(args, dir->file.path);
-				startup_memory_unmap(args);
-			}
-			// prev will get unmapped next time around or at end
+		if(head->signature != IFS_BOOTSTRAP_SIGNATURE) {
+			crash("missing bootstrap signature");
 		}
+		prev = bootstrap_map(head->bootstrap, sizeof(*prev));
+		if(prev->args != 0) {
+			// newer style bootstrap_data
+			struct bootargs_entry	*args;
+
+			// Give board specific code a change to modify the
+			// command line arguments for this bootstrap executable
+			args = bootstrap_map(prev->args, 0x2000);
+			tweak_cmdline(args, dir->file.path);
+			startup_memory_unmap(args);
+		}
+		// prev will get unmapped next time around or at end
 		startup_memory_unmap(head);
 		++i;
 		dir = (void *)((uint8_t *)dir + dir->attr.size);
 	}
-	if(prev != NULL) {
-		startup_memory_unmap(prev);
+done:	
+	if(prev == NULL) {
+		crash("No bootstrap executables found");
 	}
+	startup_memory_unmap(prev);
 }
 
 
 void
 init_system_private() {
 	struct system_private_entry	*private = set_syspage_section(&lsp.system_private, sizeof(*lsp.system_private.p));
-	int						opt;
-	paddr32_t				start_paddr;
+	unsigned				opt;
+	paddr_t					start_paddr;
 	unsigned				mem;
 	struct image_header		*ifs_hdr;
-	paddr32_t				ifs_paddr;
+	paddr_t					ifs_paddr;
 	unsigned				flags_on = 0;
 	unsigned				flags_off = 0;
 	struct cpuinfo_entry	*cpu;
@@ -262,7 +232,6 @@ init_system_private() {
 	optind = 0;
 	while((opt = getopt(_argc, _argv, "AF:M:r:j:Z")) != -1) {
 		char		*p;
-		unsigned	type;
 		paddr_t		start;
 		size_t		size;
 		paddr_t		resmem_addr;
@@ -275,12 +244,13 @@ init_system_private() {
 			private->private_flags |= SYSTEM_PRIVATE_FLAG_ABNORMAL_REBOOT;
 			break;
 		case 'M':
-			type = MEMTYPE_RAM;
+#if __PTR_BITS__ != 64
 			start = getsize(optarg, &p);
 			if(*p != ',') {
 				crash("missing comma in -M option near '%s'.\n", p);
 			}
 			size = getsize(p + 1, &p);
+			unsigned type = MEMTYPE_RAM;
 			if(*p == ',') {
 				type = strtoul(p + 1, NULL, 0);
 			}
@@ -289,6 +259,17 @@ init_system_private() {
 			} else {
 				kprintf("-M option memory type %d is no longer supported - ignored\n", type);
 			}
+#else
+			start = getsize(optarg, &p);
+			if(*p != ',') {
+				crash("missing comma in -M option near '%s'.\n", p);
+			}
+			size = getsize(p + 1, &p);
+			if(*p == ',') {
+				kprintf("-M option: memory types not supported - ignored (%s)\n", p+1);
+			}
+			add_ram(start, size);
+#endif
 			break;
 		case 'r':
 			// reserve user specified memory
@@ -356,4 +337,7 @@ init_system_private() {
 	jtag_store_syspage_addr();
 }
 
-__SRCVERSION("init_system_private.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/init_system_private.c $ $Rev: 780356 $")
+#endif

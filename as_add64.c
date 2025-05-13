@@ -63,5 +63,7 @@ as_add64(paddr64_t start, paddr64_t end, unsigned attr, const char *name, unsign
 	return(off);
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/as_add64.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/as_add64.c $ $Rev: 680332 $")
+#endif

@@ -22,8 +22,8 @@
 #include "startup.h"
 #include <arm/gic.h>
 
-paddr_t	gic_dist_base;
-paddr_t	gic_cpu_base;
+paddr_t	gic_dist_base = NULL_PADDR;
+paddr_t	gic_cpu_base = NULL_PADDR;
 
 void
 arm_gic_init(paddr_t dist_base, paddr_t cpu_base)
@@ -88,7 +88,7 @@ arm_gic_init(paddr_t dist_base, paddr_t cpu_base)
 void
 arm_gic_cpu_init()
 {
-	if (gic_dist_base == 0 || gic_cpu_base == 0) {
+	if (gic_dist_base == NULL_PADDR || gic_cpu_base == NULL_PADDR) {
 		crash("gic not initialised");
 	}
 
@@ -106,4 +106,13 @@ arm_gic_cpu_init()
 	out32(gic_cpu_base + ARM_GICC_CTLR, ARM_GICC_CTLR_EN);
 }
 
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/arm_gic.c $ $Rev: 655042 $" );
+int
+arm_gic_num_spis(void)
+{
+	return ((in32(gic_dist_base + ARM_GICD_TYPER) & ARM_GICD_TYPER_ITLN) + 1) * 32;
+}
+ 
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/arm_gic.c $ $Rev: 781278 $")
+#endif

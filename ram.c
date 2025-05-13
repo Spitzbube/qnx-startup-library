@@ -31,8 +31,8 @@ struct ram_entry {
 };
 
 struct avoid_entry {
-	paddr32_t	start;
-	paddr32_t	end;
+	PADDR_T	start;
+	PADDR_T	end;
 };
 
 struct watch_entry {
@@ -41,8 +41,8 @@ struct watch_entry {
 };
 
 static int					sysram_added;
-static paddr32_t			ws_early_next;
-static paddr32_t			temp_syspage = NULL_PADDR32;
+static PADDR_T			ws_early_next;
+static PADDR_T			temp_syspage = NULL_PADDR_STARTUP;
 static struct avoid_entry	*avoid_list;
 static unsigned				avoid_list_size;
 static struct ram_entry		*ram_list;
@@ -85,7 +85,7 @@ add_mem(paddr_t start, paddr_t size) {
 	struct ram_entry	*r;
 	struct ram_entry	*ram = ram_list;
 	
-//kprintf( "add_mem(%L,%L)\n", (paddr64_t)start, (paddr64_t)size );
+//kprintf( "add_mem(%P,%P)\n", start, size );
 	if(size > 0) {
 		for(r = ram; r->size != 0; r++) {
 			if(r->addr > start) break;
@@ -195,7 +195,7 @@ find_ram_in_range(paddr_t range_start, paddr_t range_end, size_t size, unsigned 
 		int avoided=0;
 		s = r->addr;
 		e = s + r->size;
-//		kprintf("%s: Candidate s:0x%L e:0x%L size:0x%L rqsize:%x\n", __FUNCTION__, s, e, r->size, size);		
+//		kprintf("%s: Candidate s:0x%L e:0x%L size:0x%L rqsize:%x\n", __FUNCTION__, s, e, r->size, size);
 		for(a = avoid_list; a->end != 0; ++a) {
 			if(!fix_size(&s, &e, a->start, a->end)) {
 				avoided=1;
@@ -241,16 +241,16 @@ find_ram_in_range(paddr_t range_start, paddr_t range_end, size_t size, unsigned 
 	return NULL_PADDR;
 }
 
-paddr32_t
+PADDR_T
 find_ram(size_t size, unsigned align, unsigned colour, unsigned mask) {
 	paddr_t result;
 
-	// we need to restrict this to paddr32 range
-	result = find_ram_in_range(0, MAX_PADDR32, size, align, colour, mask);
+	// we need to restrict this to PADDR_T range
+	result = find_ram_in_range(0, (PADDR_T)~(paddr_t)0, size, align, colour, mask);
 	if (result == NULL_PADDR) {
-		return NULL_PADDR32;
+		return NULL_PADDR_STARTUP;
 	}
-	return (paddr32_t) result;
+	return (PADDR_T) result;
 }
 
 paddr_t
@@ -259,15 +259,19 @@ alloc_ram(paddr_t addr, paddr_t size, unsigned align) {
 	struct ram_entry	*r;
 	paddr64_t 			s, e, end;
 	
-//kprintf("alloc_ram(%L,%L,%l) => ", (paddr64_t)addr, (paddr64_t)size, align);
+//kprintf("alloc_ram(%P,%P,%x) => ", addr, size, align);
 	if(addr == NULL_PADDR) {
 		addr = find_ram(size, align, 0, 0);
-		if(addr == NULL_PADDR32) {
+		if(addr == NULL_PADDR_STARTUP) {
 //kprintf("NULL_PADDR\n");
 			return NULL_PADDR;
 		}
+		if(secure_system) {
+			// On a secure system, we want to zero everything
+			memset(MAKE_1TO1_PTR((paddr32_t)addr), 0, size);
+		}
 	}
-//kprintf("%L\n", (paddr64_t)addr);
+//kprintf("%P\n", addr);
 	end = addr + size;
 	for(r = ram; r->size != 0; r++) {
 		s = r->addr;
@@ -327,12 +331,12 @@ alloc_ram(paddr_t addr, paddr_t size, unsigned align) {
 	return addr;
 }
 
-paddr32_t
+PADDR_T
 calloc_ram(size_t size, unsigned align) {
-	paddr32_t a;
+	PADDR_T a;
 	
 	a = alloc_ram(NULL_PADDR, size, align);
-	if(a != NULL_PADDR32) {
+	if((a != NULL_PADDR_STARTUP) && !secure_system) {
 		memset(MAKE_1TO1_PTR(a), 0, size);
 	}
 	return a;
@@ -362,9 +366,9 @@ add_ram(paddr_t start, paddr_t size) {
 	#endif
 
 	//Get more space for the temporary system page we're building.
-	if(temp_syspage == NULL_PADDR32) {
+	if(temp_syspage == NULL_PADDR_STARTUP) {
 		temp_syspage = find_ram(TEMP_SYSPAGE_SIZE, __PAGESIZE, 0, 0);
-		if(temp_syspage != NULL_PADDR32) {
+		if(temp_syspage != NULL_PADDR_STARTUP) {
 			avoid_ram(temp_syspage, TEMP_SYSPAGE_SIZE);
 			reloc_syspage_memory(MAKE_1TO1_PTR(temp_syspage), TEMP_SYSPAGE_SIZE);
 		}
@@ -376,18 +380,21 @@ add_ram(paddr_t start, paddr_t size) {
 }
 
 void
-avoid_ram(paddr32_t start, size_t size) {
+avoid_ram(PADDR_T start, size_t size) {
 	struct avoid_entry	*avoid;
 
 	if(avoid_list == NULL) {
 		ws_init();
 	}
 	avoid = (void *)((uint8_t *)avoid_list + avoid_list_size);
-
-	avoid[-1].start = start;
-	avoid[-1].end = start + size;
-	avoid[0].end = 0;
-	avoid_list_size += sizeof(*avoid);
+    if((avoid_list_size >= (sizeof(struct avoid_entry))) && (avoid[-2].end == start)) {
+        avoid[-2].end += size;
+    } else {
+        avoid[-1].start = start;
+        avoid[-1].end = start + size;
+        avoid[0].end = 0;
+        avoid_list_size += sizeof(*avoid);
+    }
 }
 
 //
@@ -415,7 +422,7 @@ add_sysram() {
 
 void *
 ws_alloc(size_t size) {
-	paddr32_t	paddr;
+	PADDR_T	paddr;
 
 	if(avoid_list == NULL) {
 		ws_init();
@@ -429,7 +436,7 @@ ws_alloc(size_t size) {
 	} else {
 		// we've been told where memory is.
 		paddr = find_ram(size, sizeof(uint64_t), 0, 0);
-		if(paddr == NULL_PADDR32) {
+		if(paddr == NULL_PADDR_STARTUP) {
 			return(NULL);
 		}
 	}
@@ -471,7 +478,7 @@ reserve_ram(unsigned size, unsigned align, unsigned pagesize) {
 
     reserved = find_top_ram_aligned(size, align ? align : pagesize, pagesize);
     if(reserved == NULL_PADDR) {
-        crash("Could not reserve 0x%l bytes of memory.\n", size);
+        crash("Could not reserve 0x%x bytes of memory.\n", size);
     }
 
     alloc_ram(reserved, size, align ? align : pagesize);
@@ -479,4 +486,7 @@ reserve_ram(unsigned size, unsigned align, unsigned pagesize) {
                       "ram");
 }
 
-__SRCVERSION("ram.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/ram.c $ $Rev: 797475 $")
+#endif

@@ -33,11 +33,22 @@ vstart_v7:
 	mov		r5, r2
 
 	/*
+	 * Set PRRR and NMRR
+	 */
+	ldr		ip, =v7_prrr
+	ldr		ip, [ip]
+	mcr		p15, 0, ip, c10, c2, 0
+
+	ldr		ip, =v7_nmrr
+	ldr		ip, [ip]
+	mcr		p15, 0, ip, c10, c2, 1
+
+	/*
 	 * Set the translation table base
 	 */
-	ldr		ip, =L1_paddr
+	ldr		ip, =v7_ttbr
 	ldr		ip, [ip]
-	add		ip, ip, r5, lsl #14			// L1_paddr * (cpu * ARM_L1_SIZE)
+	add		ip, ip, r5, lsl #14			// v7_ttbr * (cpu * ARM_L1_SIZE)
 	mcr		p15, 0, ip, c2, c0, 0		// TTBR0
 	mcr		p15, 0, ip, c2, c0, 1		// TTBR1
 	mov		ip, #1
@@ -52,8 +63,8 @@ vstart_v7:
 	/*
 	 * Enable the MMU, using read-modify-write to preserve reserved bits.
 	 */
-	ldr		r2, =mmu_cr_clr
-	ldr		r3, =mmu_cr_set
+	ldr		r2, =sctlr_clr
+	ldr		r3, =sctlr_set
 	ldr		r2, [r2]
 	ldr		r3, [r3]
 	mrc		p15, 0, lr, c1, c0, 0
@@ -81,3 +92,10 @@ vstart_v7:
 	mov		r1, r5
 	mov		pc, r4
 
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/vstart_v7.S $ $Rev: 781531 $";
+.previous
+#endif
+#endif 

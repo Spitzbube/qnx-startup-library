@@ -41,6 +41,7 @@ match_item(struct asinfo_entry *as, struct name_list *name) {
 		if(as->owner == AS_NULL_OFF) return(0);
 		as = (struct asinfo_entry *)((uint8_t *)lsp.asinfo.p + as->owner);
 	}
+	return 0;	/* quiet compiler */
 }
 
 unsigned
@@ -58,7 +59,10 @@ as_find(unsigned start, ...) {
 	for(;;) {
 		name = va_arg(args, char *);
 		if(name == NULL) break;
-		curr = alloca(sizeof(*curr));
+		curr = ALLOCA(sizeof(*curr));
+		if (curr == NULL) {
+			crash("%s:%d, alloca failed\n", __FUNCTION__, __LINE__);
+		}
 		curr->name = name;
 		curr->prev = list;
 		list = curr;
@@ -77,6 +81,10 @@ as_find(unsigned start, ...) {
 		if(match_item(as, list)) return((uintptr_t)as - (uintptr_t)base);
 		++as;
 	}
+	return 0;	/* quiet compiler */
 }
 
-__SRCVERSION("as_find.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/as_find.c $ $Rev: 816038 $")
+#endif

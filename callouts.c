@@ -173,7 +173,7 @@ callout_register_data(void *rp, void *data) {
 }
 
 void
-callout_reloc_data(void *base, unsigned len, int diff) {
+callout_reloc_data(void *base, unsigned len, ptrdiff_t diff) {
 	struct co_info	*pd;
 	
 	// Temp syspage storage has moved around. Adjust registered
@@ -242,4 +242,7 @@ callout_output_section(int sizing) {
 	
 output_callout_t *callout_output_rtn = (output_callout_t *)callout_output_section;
 
-__SRCVERSION("callouts.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/callouts.c $ $Rev: 780356 $")
+#endif

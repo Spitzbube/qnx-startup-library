@@ -53,14 +53,14 @@
  *		:
  */
 .macro	CALLOUT_PATCH	ptr, val, t0, t1, t2
-	mov		&t0, #4
-0:	and		&t1, &val, #0xff
-	ldr		&t2, [&ptr]
-	bic		&t2, &t2, #0xff
-	orr		&t2, &t2, &t1
-	str		&t2, [&ptr], #4
-	mov		&val, &val, lsr #8
-	subs	&t0, &t0, #1
+	mov		\t0, #4
+0:	and		\t1, \val, #0xff
+	ldr		\t2, [\ptr]
+	bic		\t2, \t2, #0xff
+	orr		\t2, \t2, \t1
+	str		\t2, [\ptr], #4
+	mov		\val, \val, lsr #8
+	subs	\t0, \t0, #1
 	bne		0b
 .endm
 

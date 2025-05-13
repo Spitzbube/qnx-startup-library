@@ -29,13 +29,11 @@
  */
 
 void
-armv_setup_a8(struct cpuinfo_entry *cpu, unsigned cpuid)
+armv_setup_a8(struct cpuinfo_entry *cpu, unsigned cpunum, unsigned cpuid)
 {
-	/*
-	 * Perform generic ARMv7 CPU initialisation
-	 */
-	armv_setup_v7(cpu, cpuid, 0);
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/armv_setup_a8.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_setup_a8.c $ $Rev: 781278 $")
+#endif

@@ -64,7 +64,10 @@ as_add_containing(paddr_t start, paddr_t end, unsigned attr, const char *name, c
 
 			curr = *list_owner;
 			if(curr == NULL) {
-				new = alloca(sizeof(*curr));
+				new = ALLOCA(sizeof(*curr));
+				if (new == NULL) {
+					crash("%s:%d, alloca failed\n", __FUNCTION__, __LINE__);
+				}
 				new->start = piece_start;
 				new->end   = piece_end;
 				new->owner = owner;
@@ -77,7 +80,10 @@ as_add_containing(paddr_t start, paddr_t end, unsigned attr, const char *name, c
 					curr->owner = owner;
 					break;
 				}
-				new = alloca(sizeof(*curr));
+				new = ALLOCA(sizeof(*curr));
+				if (new == NULL) {
+					crash("%s:%d, alloca failed\n", __FUNCTION__, __LINE__);
+				}
 				new->start = piece_start;
 				new->end   = piece_end;
 				new->owner = owner;
@@ -92,7 +98,10 @@ as_add_containing(paddr_t start, paddr_t end, unsigned attr, const char *name, c
 				new->next = curr->next;
 				curr->next = new;
 				if(old_end != piece_end) {
-					new = alloca(sizeof(*curr));
+					new = ALLOCA(sizeof(*curr));
+						if (new == NULL) {
+							crash("%s:%d, alloca failed\n", __FUNCTION__, __LINE__);
+					}
 					new->start = piece_end + 1;
 					new->end   = old_end;
 					new->owner = curr->owner;
@@ -130,4 +139,7 @@ as_add_containing(paddr_t start, paddr_t end, unsigned attr, const char *name, c
 	return(start_off);
 }
 
-__SRCVERSION("as_add_containing.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/as_add_containing.c $ $Rev: 816038 $")
+#endif

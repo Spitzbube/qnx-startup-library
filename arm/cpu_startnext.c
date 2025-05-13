@@ -32,24 +32,19 @@ cpu_startnext(uintptr_t eip, unsigned cpu)
 {
 	uintptr_t	sysp = (uintptr_t)lsp.system_private.p->kern_syspageptr;
 
-	if (debug_flag) {
-		kprintf("cpu_startnext: cpu%d -> %x\n", cpu, eip);
-	}
-
 	board_cpu_startnext();
 
 	/*
 	 * Call the next program, passing syspage pointer in r0
 	 */
 	if (shdr->flags1 & STARTUP_HDR_FLAGS1_VIRTUAL) {
-		if (vstart == 0) {
-			vstart = vstart_v4;
-		}
 		vstart(sysp, eip, cpu);
 	} else {
 		((void (*)(void *, unsigned))eip)((void *)sysp, cpu);
 	}
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/cpu_startnext.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/cpu_startnext.c $ $Rev: 780356 $")
+#endif

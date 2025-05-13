@@ -21,6 +21,9 @@
 
 #include "startup.h"
 
+paddr_t	pl310_base = NULL_PADDR;
+paddr_t	mpcore_scu_base = NULL_PADDR;
+
 /*
  * Detect various configurations for Cortex-A9 processors
  */
@@ -35,19 +38,13 @@ armv_detect_a9(void)
 	 * Configuration Base Address register
 	 */
 	__asm__ __volatile__("mrc	p15, 4, %0, c15, c0, 0" : "=r"(scu));
-	if (scu == 0) {
-		/*
-		 * Uniprocessor implementation
-		 */
-		return &armv_chip_a9up;
+	if (scu != 0) {
+		mpcore_scu_base = scu;
 	}
-
-	/*
-	 * MPCore implementation
-	 */
-	mpcore_scu_base = scu;
-	return &armv_chip_a9mp;
+	return &armv_chip_a9;
 }
 
-
-__SRCVERSION( "$URL: http://svn.ott.qnx.com/product/trunk/hardware/startup/lib/arm/armv_detect_a9.c $ $Rev: 217585 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_detect_a9.c $ $Rev: 782220 $")
+#endif

@@ -33,6 +33,11 @@
 
 struct qtime_entry *
 alloc_qtime() {
+	if(lsp.qtime.size != 0) {
+		// Section already has been allocated & initialized
+		return lsp.qtime.p;
+	}
+
 	struct qtime_entry *qtime = set_syspage_section(&lsp.qtime, sizeof(*lsp.qtime.p));
 	const struct startup_info_time	*time;
 
@@ -42,8 +47,10 @@ alloc_qtime() {
 		qtime->boot_time = (time != NULL) ? time->time : rtc_time();
 		qtime->nsec_tod_adjust = qtime->boot_time * (uint64_t)1000000000;
 	}
-	return(qtime);
+	return qtime;
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/alloc_qtime.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/alloc_qtime.c $ $Rev: 780356 $")
+#endif

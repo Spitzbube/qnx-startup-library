@@ -27,13 +27,16 @@
 
 
 void
-load_ifs(paddr32_t ifs_paddr) {
+load_ifs(paddr_t ifs_paddr) {
 	int			comp;
-	paddr32_t	src;
+	paddr_t	src;
 
-	if (!shdr || !shdr->image_paddr || !shdr->startup_size) {
-		crash("startup: shdr: %x, image_paddr: %x, startup_size: %x\nImage header corrupt\n",
-				shdr, shdr->image_paddr, shdr->startup_size);
+	if(shdr == NULL) {
+		crash("NULL shdr");
+	}
+	if(!shdr->image_paddr || !shdr->startup_size) {
+		crash("startup: shdr: %V, image_paddr: %P, startup_size: %x\nImage header corrupt\n",
+				shdr, (paddr_t)shdr->image_paddr, shdr->startup_size);
 	}
 
 	if (debug_flag > 0) kprintf("Loading IFS...");
@@ -52,9 +55,15 @@ load_ifs(paddr32_t ifs_paddr) {
 			 * we won't bother actually allocating it.
 			 *
              */
-            src = find_ram(shdr->stored_size, sizeof(uint64_t), 0, 0);
-        	copy_memory(src, ifs_paddr, shdr->stored_size);
-		} 
+			src = find_ram(shdr->stored_size, sizeof(uint64_t), 0, 0);
+			copy_memory(src, ifs_paddr, shdr->stored_size);
+		}
+
+		// If the uncompressed image-size is GREATER than allowed space of expansion,
+		// vital memory space will land up being corrupted/overwritten.
+		if ((shdr->imagefs_paddr - shdr->image_paddr) < shdr->imagefs_size)
+			crash("\n\t *** Warning! Uncompressing this image will exceed allotted space & cause memory corruption! *** \n");
+
 		uncompress(comp, ifs_paddr, src);
 	} else if((shdr->imagefs_paddr != 0) &&
 			 (shdr->imagefs_paddr != ifs_paddr)) {
@@ -63,4 +72,7 @@ load_ifs(paddr32_t ifs_paddr) {
 	if (debug_flag > 0) kprintf("done\n");
 }
 
-__SRCVERSION("load_ifs.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/load_ifs.c $ $Rev: 819658 $")
+#endif

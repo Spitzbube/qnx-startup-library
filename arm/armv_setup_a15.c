@@ -26,44 +26,17 @@
  */
 
 void
-armv_setup_a15(struct cpuinfo_entry *cpu, unsigned cpuid)
+armv_setup_a15(struct cpuinfo_entry *cpu, unsigned cpunum, unsigned cpuid)
 {
-	unsigned	aux;
-	unsigned	cpunum;
-
-	cpunum = arm_v6_cpunum();
-	if (cpunum != 0 && gic_cpu_base != 0) {
-		/*
-		 * Initialise GIC interface for this cpu.
-		 * For CPU0, this should be initialised in init_intrinfo()
-		 */
-		arm_gic_cpu_init();
-	}
-
-	/*
-	 * Configure CP15 auxiliary control register
-	 *
-	 * FIXME: should use symbolic constants
-	 */
-	aux = arm_v6_cp15_auxcr_get();	
 	if (lsp.syspage.p->num_cpu > 1) {
 		/*
 		 * Set SMP (bit 6) to enable coherency requests from other cpus
 		 */
-		aux |= (1 << 6);
+		arm_actlr_set(arm_actlr_get() | (1u << 6));
 	}
-	arm_v6_cp15_auxcr_set(aux);	
-
-	/*
-	 * Processor implements ARMv7 Multiprocessor Extensions
-	 */
-	cpu->flags |= ARM_CPU_FLAG_V7_MP;
-
-	/*
-	 * Perform generic ARMv7 CPU initialisation
-	 */
-	armv_setup_v7(cpu, cpuid, cpunum);
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/armv_setup_a15.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_setup_a15.c $ $Rev: 782220 $")
+#endif

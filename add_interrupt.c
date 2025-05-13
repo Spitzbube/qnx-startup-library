@@ -74,13 +74,26 @@ add_interrupt(const struct startup_intrinfo *startup_intr) {
 	intr = grow_syspage_section(&lsp.intrinfo, sizeof(*intr));
 	//Point at newly allocated entry
 	intr = (void *)((uint8_t *)intr + lsp.intrinfo.size - sizeof(*intr));
-	*intr = *(struct intrinfo_entry *)startup_intr;
+	intr->vector_base = startup_intr->vector_base;
+	intr->num_vectors = startup_intr->num_vectors;
+	intr->cascade_vector = startup_intr->cascade_vector;
+	intr->cpu_intr_base = startup_intr->cpu_intr_base;
+	intr->cpu_intr_stride = startup_intr->cpu_intr_stride;
+	intr->local_stride = startup_intr->local_stride;
+	intr->flags = startup_intr->flags;
+	intr->id.genflags = startup_intr->id.genflags;
+	intr->id.rtn = (void *)startup_intr->id.rtn;
 	if(startup_intr->id.rtn != NULL) {
 		intr->id.size = startup_intr->id.rtn->rtn_size;
 	}
+	intr->eoi.genflags = startup_intr->eoi.genflags;
+	intr->eoi.rtn = (void *)startup_intr->eoi.rtn;
 	if(startup_intr->eoi.rtn != NULL) {
 		intr->eoi.size = startup_intr->eoi.rtn->rtn_size;
 	}
+	intr->mask = (void *)startup_intr->mask;
+	intr->unmask = (void *)startup_intr->unmask;
+	intr->config = (void *)startup_intr->config;
 	
 	for(i = 0; i < NUM_ELTS(offsets); ++i) {
 		void	(**rtn)(void) = (void (**)(void))((uintptr_t)intr + offsets[i]);
@@ -110,5 +123,7 @@ add_interrupt_array(const struct startup_intrinfo *intrs, unsigned size) {
 	}
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/add_interrupt.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/add_interrupt.c $ $Rev: 780356 $")
+#endif

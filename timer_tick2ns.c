@@ -54,4 +54,7 @@ timer_tick2ns(unsigned long ticks) {
 	return(ns);
 }
 
-__SRCVERSION("timer_tick2ns.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/timer_tick2ns.c $ $Rev: 680332 $")
+#endif

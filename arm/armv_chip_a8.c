@@ -19,28 +19,17 @@
  * $
  */
 
-
-
 #include "startup.h"
 
 const struct armv_chip armv_chip_a8 = {
 	.cpuid		= 0xc080,
 	.name		= "Cortex A8",
-	.mmu_cr_set	= ARM_MMU_CR_XP|ARM_MMU_CR_I|ARM_MMU_CR_Z,
-	.mmu_cr_clr	= 0,
 	.cycles		= 2,
-	.cache		= &armv_cache_a8,
 	.power		= &power_v7_wfi,
-	.flush		= &page_flush_a8,
-	.deferred	= &page_flush_deferred_a8,
-	.pte		= &armv_pte_v7wa,
-	.pte_wa		= &armv_pte_v7wa,
-	.pte_wb		= &armv_pte_v7wb,
-	.pte_wt		= &armv_pte_v7wt,
 	.setup		= armv_setup_a8,
-	.ttb_attr	= ARM_TTBR_RGN_WT,
-	.pte_attr	= ARM_PTE_V6_SP_XN|ARM_PTE_WT,
 };
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/armv_chip_a8.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_chip_a8.c $ $Rev: 781278 $")
+#endif

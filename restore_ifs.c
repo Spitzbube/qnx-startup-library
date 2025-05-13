@@ -24,10 +24,13 @@
 #include "startup.h"
 #include "restore_ifs.h"
 
-#define		RIFS_DEBUG_LEVEL	1
+#define RIFS_DEBUG_LEVEL 1
+
+typedef union   { Elf32_Phdr  _32;  Elf64_Phdr _64; } _EPhdr_t;
+typedef union   { Elf32_Ehdr  _32;  Elf64_Ehdr _64; } _EEhdr_t;
 
 // Function prototypes
-static Elf32_Phdr *rifs_readelf(paddr32_t paddr);
+static _EPhdr_t *rifs_readelf(paddr_t paddr, uint32_t *poff, uint32_t *psiz);
 static int rifs_checksum(void *ptr, long len);
 static void rifs_init(struct restore_ifs_info *rifs_info);
 static int check_rifs_signature(struct restore_ifs_info *rifs_info);
@@ -36,8 +39,8 @@ static int check_ifs_signature(struct image_header	*ifs_hdr);
 struct restore_ifs_info 	*rifs_info;
 struct restore_ifs2_info 	*rifs2_info;
 unsigned 					rifs_flag = RIFS_FLAG_NONE;
-paddr32_t 					ifs2_paddr_src = 0;
-paddr32_t 					ifs2_paddr_dst = 0;
+paddr_t 					ifs2_paddr_src = 0;
+paddr_t 					ifs2_paddr_dst = 0;
 unsigned 					ifs2_size = 0;
 unsigned 					mdriver_cksum_max = KILO(500);
 
@@ -54,7 +57,7 @@ void load_ifs2_nonbootable(void)
 
 	if(debug_flag > RIFS_DEBUG_LEVEL)	
 	{
-		kprintf("ifs2_paddr_dst: 0x%X\r\n", ifs2_paddr_dst);
+		kprintf("ifs2_paddr_dst: 0x%P\n", ifs2_paddr_dst);
 	}
 	
 	// Attempt to restore IFS2 if it is already in RAM	
@@ -69,7 +72,7 @@ int rifs_restore_ifs2(void)
 {
 	struct image_header		*ifs2_hdr;
 	int						status = 0;
-	paddr32_t				paddr;
+	paddr_t				paddr;
 	
 	// Allocate memory for the restore IFS2 info.
 	// NOTE: We assume that the address will be the same everytime.
@@ -80,13 +83,13 @@ int rifs_restore_ifs2(void)
 	if(debug_flag > RIFS_DEBUG_LEVEL)	
 	{
 		kprintf("Restore IFS2 searching for valid IFS in RAM...\n");
-		kprintf("rifs2_info PADDR = 0x%X\n", paddr);
-		kprintf("rifs2_info ADDR = 0x%X\n", rifs2_info);
+		kprintf("rifs2_info PADDR = 0x%P\n", paddr);
+		kprintf("rifs2_info ADDR = 0x%v\n", rifs2_info);
 	}
 	
 	// Obtain a pointer to the IFS2 that *may* be in RAM.  At this point, we still 
 	// don't know if it is valid or if it is safe to access this data structure.	
-	ifs2_hdr = MAKE_1TO1_PTR(ifs2_paddr_dst);	
+	ifs2_hdr = MAKE_1TO1_PTR((paddr_t)ifs2_paddr_dst);	
 	
 	// Determine if there is already an IFS2 in RAM and if the restore 
 	// information stored from the last boot is valid.
@@ -142,7 +145,7 @@ int rifs_load_ifs2(void)
 {
 	struct image_header		*ifs2_hdr;
 
-	ifs2_hdr = MAKE_1TO1_PTR(ifs2_paddr_dst);	
+	ifs2_hdr = MAKE_1TO1_PTR((paddr_t)ifs2_paddr_dst);	
 	
 	// Set the default source location of IFS2 if the user didn't specify 
 	if(!(rifs_flag & RIFS_FLAG_IFS2_SRC)) {
@@ -152,8 +155,8 @@ int rifs_load_ifs2(void)
 	
 	if(debug_flag > RIFS_DEBUG_LEVEL)	
 	{
-		kprintf("ifs2_paddr_src: 0x%X\r\n", ifs2_paddr_src);
-		kprintf("ifs2_paddr_src (auto): 0x%X\r\n", shdr->imagefs_paddr + shdr->stored_size - shdr->startup_size);
+		kprintf("ifs2_paddr_src: 0x%P\n", ifs2_paddr_src);
+		kprintf("ifs2_paddr_src (auto): 0x%x\n", shdr->imagefs_paddr + shdr->stored_size - shdr->startup_size);
 	}
 	
 	// Reserve space for our 2nd IFS if it is a user specified location
@@ -190,13 +193,13 @@ int rifs_load_ifs2(void)
 }
 
 // Restore an IFS already stored in RAM (i.e. CPU was turned off, RAM was left in self-refresh)
-int rifs_restore_ifs(paddr32_t ifs_paddr)
+int rifs_restore_ifs(paddr_t ifs_paddr)
 {
-	paddr32_t					paddr_dst, paddr_src;
+	paddr_t					paddr_dst, paddr_src;
 	struct image_header			*ifs_hdr;
 	int							status = 0;
 	int							i;
-	paddr32_t					paddr;
+	paddr_t					paddr;
 	
 	// Allocate memory for the restore ifs info.
 	// NOTE: We assume that the address will be the same everytime.
@@ -211,8 +214,8 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 	if(debug_flag > RIFS_DEBUG_LEVEL)	
 	{
 		kprintf("Restore IFS searching for valid IFS in RAM...\n");
-		kprintf("rifs_info PADDR = 0x%X\n", paddr);
-		kprintf("rifs_info ADDR = 0x%X\n", rifs_info);
+		kprintf("rifs_info PADDR = 0x%P\n", paddr);
+		kprintf("rifs_info ADDR = 0x%v\n", rifs_info);
 	}
 	
 	// Determine if there is already an IFS in RAM and if the restore 
@@ -226,7 +229,7 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 		if(debug_flag > RIFS_DEBUG_LEVEL)	
 		{
 			kprintf("FOUND valid IFS signature and RIFS info in RAM.\n");
-			kprintf("IFS pre checksum = 0x%X (should not be 0x0)\n", rifs_checksum(ifs_hdr, rifs_info->image_size));
+			kprintf("IFS pre checksum = 0x%x (should not be 0x0)\n", rifs_checksum(ifs_hdr, rifs_info->image_size));
 		}
 		
 		// Loop through all bootable executables in the image and restore only 
@@ -235,8 +238,8 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 		{
 			if(debug_flag > RIFS_DEBUG_LEVEL)	
 			{
-				kprintf("bootable exec %d offset: 0x%X\r\n", i, rifs_info->elfinfo[i].offset);
-				kprintf("bootable exec %d size: 0x%X\r\n", i, rifs_info->elfinfo[i].size);
+				kprintf("bootable exec %d offset: 0x%x\n", i, rifs_info->elfinfo[i].offset);
+				kprintf("bootable exec %d size: 0x%x\n", i, rifs_info->elfinfo[i].size);
 			}
 			
 			// Determine location of the executable's data	
@@ -248,7 +251,7 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 				// Compressed image
 				if(debug_flag > RIFS_DEBUG_LEVEL)	
 				{
-					kprintf("Compressed image src = 0x%X\n", rifs_info->elfinfo[i].data);
+					kprintf("Compressed image src = 0x%x\n", rifs_info->elfinfo[i].data);
 				}
 				// Copy over the previously saved data (dst & src both in the 1-to-1 mapping region)
 				// NOTE: Use copy_memory to support mini-drivers
@@ -260,7 +263,7 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 				paddr_src = shdr->imagefs_paddr + rifs_info->elfinfo[i].offset;
 				if(debug_flag > RIFS_DEBUG_LEVEL)	
 				{
-					kprintf("Uncompressed image paddr_src = 0x%X\n", paddr_src);
+					kprintf("Uncompressed image paddr_src = 0x%P\n", paddr_src);
 				}
 				
 				// Copy over data from the original image (dst in the 1-to-1 mapping region, src may be anywhere)
@@ -270,7 +273,7 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 		
 		if(debug_flag > RIFS_DEBUG_LEVEL)	
 		{
-			kprintf("IFS post checksum = 0x%X (should be 0x0)\n", rifs_checksum(ifs_hdr, rifs_info->image_size));
+			kprintf("IFS post checksum = 0x%x (should be 0x0)\n", rifs_checksum(ifs_hdr, rifs_info->image_size));
 		}
 		
 		// Determine if we should checksum the IFS		
@@ -313,26 +316,26 @@ int rifs_restore_ifs(paddr32_t ifs_paddr)
 }
 
 // Save writeable data section of ELF executables
-int rifs_save_elf32data(paddr32_t addr, union image_dirent *dir, int numboot)
+int rifs_save_elf32data(paddr_t addr, union image_dirent *dir, int numboot)
 {
-	Elf32_Phdr 				*phdr;
-	
+	_EPhdr_t  			*phdr;
+	uint32_t            off, size;
 	// Make sure the number of bootable executables isn't greater than the max	
 	if(numboot >= RIFS_MAX_BOOTABLE)
 		return(-1);
 		
 	// Read the ELF header	
-	if((phdr = rifs_readelf(addr)))
+	if((phdr = rifs_readelf(addr, &off, &size)))
 	{
 		if(debug_flag > RIFS_DEBUG_LEVEL)	
 		{
 			kprintf("Found procnto Elf header\n");
-			kprintf("bootable exec data: offset %x, size %x\n", phdr->p_offset, phdr->p_filesz );
+			kprintf("bootable exec data: offset %x, size %x\n", off, size );
 		}
 		// Increment the number of bootable images found and save the related info
 		rifs_info->numboot++;
-		rifs_info->elfinfo[numboot].offset = dir->file.offset + phdr->p_offset;
-		rifs_info->elfinfo[numboot].size = phdr->p_filesz;
+		rifs_info->elfinfo[numboot].offset = dir->file.offset + off;
+		rifs_info->elfinfo[numboot].size = size;
 	
 		// If the image is compressed, save the data 
 		if(shdr->flags1 & STARTUP_HDR_FLAGS1_COMPRESS_MASK)
@@ -381,50 +384,66 @@ void rifs_set_cksum(struct image_header *ifs_hdr)
 }
 
 // Process the ELF header to find the location of the writeable data 
-static Elf32_Phdr *rifs_readelf(paddr32_t paddr)
+static _EPhdr_t *rifs_readelf(paddr_t paddr, uint32_t *poff, uint32_t *psiz)
 {
 	uint8_t			*ptr;
-	Elf32_Ehdr		*ehdr;
-	Elf32_Phdr		*phdr;
+	_EEhdr_t		*ehdr;
+	_EPhdr_t		*phdr;
 	Elf32_Off		off;
 	int				i;
-	
+	int             num, size;
+
 	ptr = MAKE_1TO1_PTR(paddr);
-	ehdr = (Elf32_Ehdr *)ptr;
+	ehdr = (_EEhdr_t  *)ptr;
 	
 	// Verify ELF header	
-	if(	ehdr->e_ident[EI_MAG0] !=  ELFMAG0 ||
-		ehdr->e_ident[EI_MAG1] !=  ELFMAG1 ||
-		ehdr->e_ident[EI_MAG2] !=  ELFMAG2 ||
-		ehdr->e_ident[EI_MAG3] !=  ELFMAG3 )
-	{
+	if(	ehdr->_32.e_ident[EI_MAG0] !=  ELFMAG0 ||
+		ehdr->_32.e_ident[EI_MAG1] !=  ELFMAG1 ||
+		ehdr->_32.e_ident[EI_MAG2] !=  ELFMAG2 ||
+		ehdr->_32.e_ident[EI_MAG3] !=  ELFMAG3 ) {
 		return NULL;
 	}
-		
-	// Search through the ELF header for the writeable data information	
-	off = ehdr->e_phoff;
-	for(i = 0; i < ehdr->e_phnum; i++)
-	{
-		// Seek to the next type
-		phdr = (Elf32_Phdr *)(ptr + off);
-		// Look for PT_LOAD type
-		if(phdr->p_type == PT_LOAD)
-		{
-			// Find PT_LOAD type marked as writeable
-			if(phdr->p_flags & PF_W)
-			{
-				if(debug_flag > RIFS_DEBUG_LEVEL)	
-				{
-					kprintf("PT_LOAD RW: %x size is %x\n", phdr->p_offset, phdr->p_filesz );
+
+#if __PTR_BITS__ > 32	
+	if (ehdr->_32.e_ident[EI_CLASS] == ELFCLASS64) {
+		off = ehdr->_64.e_phoff;
+		num = ehdr->_64.e_phnum;
+		size = ehdr->_64.e_phentsize;
+		for (i=0; i < num; i++) {
+			// Seek to the next type
+			phdr = (_EPhdr_t *)(ptr + off);
+			// Look for PT_LOAD type
+			if (phdr->_64.p_type == PT_LOAD && (phdr->_64.p_flags & PF_W)) {
+				*poff = (uint32_t)phdr->_64.p_offset;
+				*psiz =	(uint32_t)phdr->_64.p_filesz;
+				if (debug_flag > RIFS_DEBUG_LEVEL) {
+					kprintf("PT_LOAD RW: %x size is %x\n", *poff, *psiz);
 				}
-				// Found the match, return it to the caller
 				return phdr;
 			}
+			off += size;
 		}
-		// Skip to the next type
-		off += ehdr->e_phentsize;
+		return NULL;
 	}
-	
+#endif		
+
+	off = ehdr->_32.e_phoff;
+	num = ehdr->_32.e_phnum;
+	size = ehdr->_32.e_phentsize;
+	for (i=0; i < num; i++) {
+		// Seek to the next type
+		phdr = (_EPhdr_t *)(ptr + off);
+		// Look for PT_LOAD type
+		if (phdr->_32.p_type == PT_LOAD && (phdr->_32.p_flags & PF_W)) {
+			*poff = (uint32_t)phdr->_32.p_offset;
+			*psiz =	(uint32_t)phdr->_32.p_filesz;
+			if (debug_flag > RIFS_DEBUG_LEVEL) {
+				kprintf("PT_LOAD RW: %x size is %x\n", *poff, *psiz);
+			}
+			return phdr;
+		}
+		off += size;
+	}
 	return NULL;
 }
 
@@ -554,4 +573,7 @@ static int check_ifs_signature(struct image_header	*ifs_hdr)
 	return(0);
 }
 
-__SRCVERSION("restore_ifs.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/restore_ifs.c $ $Rev: 780356 $")
+#endif

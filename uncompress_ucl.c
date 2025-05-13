@@ -45,4 +45,7 @@ uncompress_ucl(uint8_t *dst, uint8_t *src) {
 	}
 }
 
-__SRCVERSION("uncompress_ucl.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/uncompress_ucl.c $ $Rev: 680332 $")
+#endif

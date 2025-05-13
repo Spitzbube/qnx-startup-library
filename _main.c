@@ -25,7 +25,11 @@
 
 #include "startup.h"
 
-unsigned					paddr_bits = 32;
+#ifndef CPU_PADDR_BITS
+#define CPU_PADDR_BITS 32
+#endif
+
+unsigned					paddr_bits = CPU_PADDR_BITS;
 int							debug_flag = 0;
 unsigned					reserved_size;
 unsigned					reserved_align;
@@ -37,14 +41,17 @@ unsigned					patch_channel;
 struct startup_header		*shdr;
 char						**_argv;
 int							_argc;
-unsigned 					max_cpus = ~0;
+unsigned					max_cpus = ~0;
 unsigned					system_icache_idx = CACHE_LIST_END;
 unsigned					system_dcache_idx = CACHE_LIST_END;
 chip_info					timer_chip;
-unsigned 					(*timer_start)(void);
-unsigned 					(*timer_diff)(unsigned start);
+unsigned					(*timer_start)(void);
+unsigned					(*timer_diff)(unsigned start);
 struct syspage_entry		*_syspage_ptr;
 unsigned					misc_flags;
+int							secure_system;
+uintptr_t					first_bootstrap_start_vaddr = ~(uintptr_t)0;
+static						uintptr_t stack_addr;
 
 extern struct bootargs_entry	boot_args;	//filled in by mkifs
 
@@ -81,19 +88,32 @@ setup_cmdline(void) {
 
 }
 
+static void
+stack_check_init(void) {
+	extern void *stack_addr_lo;
+	stack_addr = (uintptr_t)&stack_addr_lo + ((boot_args.size_hi << 8) | boot_args.size_lo);
+}
+
 void
 _main(void) {
+	void *syspage_mem = NULL;
 
-	shdr = (struct startup_header *)boot_args.shdr_addr;
+	shdr = (struct startup_header *)(uintptr_t)boot_args.shdr_addr;
 
 	board_init();
 
 	setup_cmdline();
 
+	stack_check_init();
+
 	cpu_startup();
 
 	#define INIT_SYSPAGE_SIZE 0x600
-	init_syspage_memory(ws_alloc(INIT_SYSPAGE_SIZE), INIT_SYSPAGE_SIZE);
+	syspage_mem = ws_alloc(INIT_SYSPAGE_SIZE);
+	if(!syspage_mem) {
+		crash("No memory for syspage.\n");
+	}
+	init_syspage_memory(syspage_mem, INIT_SYSPAGE_SIZE);
 
 	if(shdr->imagefs_paddr != 0) {
 		avoid_ram(shdr->imagefs_paddr, shdr->stored_size);
@@ -137,10 +157,40 @@ int errno;
 int *
 __get_errno_ptr(void) { return &errno; }
 
+
 size_t
-__stackavail(void) { return (size_t)~0; }
+__stackavail(void)
+{
+	const uintptr_t sp = rdsp();
+#ifdef TRACE_ALLOCA
+	kprintf("%s(), top = %v, sp = %v, free = %u\n", __FUNCTION__, stack_addr, sp, sp - stack_addr);
+#endif
+	return (size_t)(sp - stack_addr);
+}
 
 void
 abort(void) { crash("ABORT"); for( ;; ) {} }
 
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/_main.c $ $Rev: 655042 $" );
+
+#ifdef TRACE_ALLOCA		/* see startup.h */
+
+void *__alloca_tmp;
+
+#define BLOWN_STACK_MSG		"\tBlown startup stack [lo/hi/cur: "
+const char * const blown_startup_stack(const size_t req_sz, const uintptr_t sp)
+{
+	extern void *stack_addr_hi;
+	const size_t aligned_req_sz = __ALLOCA_ALIGN(req_sz) + __ALLOCA_OVERHEAD;
+	static char msg[] = {BLOWN_STACK_MSG "xxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxx], request xxxxxxx of xxxxxxx available\n"};
+
+	ksprintf(&msg[sizeof(BLOWN_STACK_MSG) - 1], "%v/%v/%v], request %u of %u available\n",
+						stack_addr, (uintptr_t)&stack_addr_hi, sp, (unsigned)aligned_req_sz, (unsigned)(sp - stack_addr));
+	return msg;
+}
+#endif
+
+
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/_main.c $ $Rev: 816038 $")
+#endif

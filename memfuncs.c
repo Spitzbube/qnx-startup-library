@@ -32,7 +32,7 @@
 
 
 void
-copy_memory(paddr32_t dst, paddr32_t src, size_t len) {
+copy_memory(PADDR_T dst, PADDR_T src, size_t len) {
 	uint8_t		*d;
 	uint8_t		*s;
 	unsigned	max;
@@ -56,4 +56,7 @@ copy_memory(paddr32_t dst, paddr32_t src, size_t len) {
 	}	
 }
 
-__SRCVERSION("memfuncs.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/memfuncs.c $ $Rev: 780356 $")
+#endif

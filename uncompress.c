@@ -38,7 +38,7 @@
 #endif
 
 void
-uncompress(int type, paddr32_t dst_paddr, paddr32_t src_paddr) {
+uncompress(int type, PADDR_T dst_paddr, PADDR_T src_paddr) {
 	uint8_t		*dst;
 	uint8_t		*src;
 
@@ -70,4 +70,7 @@ uncompress(int type, paddr32_t dst_paddr, paddr32_t src_paddr) {
 	startup_memory_unmap(src);
 }
 
-__SRCVERSION("uncompress.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/uncompress.c $ $Rev: 780356 $")
+#endif

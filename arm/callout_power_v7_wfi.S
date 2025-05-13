@@ -26,7 +26,7 @@
  *	r0 - pointer to syspage_entry
  *	r1 - flag (currently always 0)
  *
- * FIXME: currently, this callout is only called from the ARM specific halt()
+ * NOTE : currently, this callout is only called from the ARM specific halt()
  *        function in the kernel. If this becomes used for a general purpose
  *        power management facility, we will need to handle arguments.
  * --------------------------------------------------------------------------
@@ -46,3 +46,10 @@ CALLOUT_START(power_v7_wfi, 0, 0)
 
 CALLOUT_END(power_v7_wfi)
 
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/callout_power_v7_wfi.S $ $Rev: 733816 $";
+.previous
+#endif
+#endif 

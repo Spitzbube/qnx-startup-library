@@ -51,7 +51,8 @@ del_typed_string(int type_index) {
 
 	i = find_typed_string(type_index);
 	if(i < 0) return(0);
-	j = i + strlen(&p[i+sizeof(uint32_t)]) + 1;
+	j = i + sizeof(uint32_t);
+	j += strlen(&p[j]) + 1;
 	j = ROUND(j, sizeof(uint32_t));
 	end = find_typed_string(_CS_NONE);
 	while(j < end) {
@@ -109,4 +110,7 @@ add_string(const char *name) {
 	return(i);
 }
 
-__SRCVERSION("strings.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/strings.c $ $Rev: 756950 $")
+#endif

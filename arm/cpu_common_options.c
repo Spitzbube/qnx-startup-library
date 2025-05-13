@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,24 +19,44 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
-
-int	arm_altpte;
 
 int
 cpu_handle_common_option(int opt)
 {
 	switch (opt) {
-	case 'w':
-		arm_altpte = optarg[0];
+	case 'x':
+		/*
+		 * Set full implemented physical address size
+		 */
+		if ((arm_mmfr0_get() & 0xf) == 5) {
+			switch ((arm_mmfr3_get() >> 24) & 0xf) {
+			case 0:
+				paddr_bits = 32;
+				break;
+
+			case 1:
+				paddr_bits = 36;
+				break;
+
+			case 2:
+				paddr_bits = 40;
+				break;
+
+			default:
+				/*
+				 * Undefined ID_MMFR3 encoding
+				 */
+				paddr_bits = 32;
+				break;
+			}
+		}
 		return 1;
 	}
 	return 0;
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/cpu_common_options.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/cpu_common_options.c $ $Rev: 782220 $")
+#endif

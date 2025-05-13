@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2009, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,19 +19,21 @@
  * $
  */
 
-
-
 #include "startup.h"
 
 /*
- * Cortex-A9 can be implemented as either uniprocessor or SMP.
- * The same CPUID is used for both implementations, but we require different
- * configuration and support code, so we need to perform run-time detection
- * to figure out what implementation to use.
+ * Configuration for Cortex-A9 MPCore
  */
 const struct armv_chip armv_chip_a9 = {
 	.cpuid		= 0xc090,
+	.name		= "Cortex-A9",
 	.detect		= armv_detect_a9,
+	.cycles		= 2,
+	.power		= &power_v7_wfi,
+	.setup		= armv_setup_a9,
 };
 
-__SRCVERSION( "$URL: http://svn.ott.qnx.com/product/trunk/hardware/startup/lib/arm/armv_chip_a9.c $ $Rev: 217585 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_chip_a9.c $ $Rev: 782220 $")
+#endif

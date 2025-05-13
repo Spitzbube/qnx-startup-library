@@ -29,54 +29,14 @@
  */
 
 const struct armv_chip *armv_list[] = {
-	&armv_chip_720,
-
-	&armv_chip_920,
-	&armv_chip_922,
-	&armv_chip_925,
-	&armv_chip_926,
-
-	&armv_chip_1020,
-	&armv_chip_1022,
-
-	&armv_chip_sa1100,
-	&armv_chip_sa1110,
-
-	&armv_chip_ixp1200,
-
-	&armv_chip_80200,
-
-	&armv_chip_pxa250a,	// stepping A0/A1
-	&armv_chip_pxa250b,	// stepping B0/B1/B2
-	&armv_chip_pxa255,	// pxa250 stepping C0
-
-	&armv_chip_pxa210b,	// stepping B0/B1/B2
-	&armv_chip_pxa210c,	// stepping C0
-
-	&armv_chip_pxa270,
-
-	&armv_chip_ixp2400,
-	&armv_chip_ixp2800,
-
-	&armv_chip_ixp23xx,
-
-	&armv_chip_ixp425,
-	&armv_chip_ixp465,
-
-	&armv_chip_1136,
-	&armv_chip_1176,
-	&armv_chip_mp11,
-
+	&armv_chip_a7,
 	&armv_chip_a8,
-
-	&armv_chip_sheeva,
-
 	&armv_chip_a9,
-
 	&armv_chip_a15,
-
 	0
 };
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/armv_list.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_list.c $ $Rev: 780356 $")
+#endif

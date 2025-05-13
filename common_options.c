@@ -25,6 +25,8 @@
 
 #include "startup.h"
 
+int				in_hvc;
+
 static char	*debug_opt[2];
 
 static void
@@ -58,10 +60,13 @@ void
 handle_common_option(int opt) {
 	unsigned				num;
 	char 					*cp;
-	unsigned long				hundred_loop_time, overhead;
+	unsigned long			hundred_loop_time, overhead;
 	
    	if(!cpu_handle_common_option(opt)) {
 		switch(opt) {
+		case 'C':	
+			secure_system = 1;
+			break;
 		case 'D':
 			/* kprintf output channel */
 			debug_opt[0] = optarg;
@@ -133,11 +138,11 @@ handle_common_option(int opt) {
 					cp++;
 				}
 			}
-			if((cp = strchr(cp, ',')) != NULL) {
+			if((cp != NULL) && ((cp = strchr(cp, ',')) != NULL)) {
 				rifs_flag |= RIFS_FLAG_IFS2_SRC;
 				ifs2_paddr_src = strtoul(cp + 1, &cp, 0);
 			}
-			if((cp = strchr(cp, ',')) != NULL) {
+			if((cp != NULL) && ((cp = strchr(cp, ',')) != NULL)) {
 				rifs_flag |= RIFS_FLAG_IFS2_DST;
 				// Get destination value and make sure it is at a 4K page boundary
 				ifs2_paddr_dst = 0xFFFFF000 & strtoul(cp + 1, &cp, 0);
@@ -150,6 +155,9 @@ handle_common_option(int opt) {
 				hwi_add_nanospin(hundred_loop_time, overhead);
 			}
 			break;
+        case 'H':
+            in_hvc = 1;
+            break;
 		}
 	}
 }
@@ -225,4 +233,7 @@ select_debug(const struct debug_device *dev, unsigned size) {
 	if(debug_opt[1] != NULL) select_one(dev, size, 1);
 }
 
-__SRCVERSION("common_options.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/common_options.c $ $Rev: 769082 $")
+#endif

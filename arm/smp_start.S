@@ -80,3 +80,11 @@ smp_start:
 .data
 	.space	512
 stack:
+
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/smp_start.S $ $Rev: 701498 $";
+.previous
+#endif
+#endif 

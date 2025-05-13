@@ -57,4 +57,7 @@ as_find_containing(unsigned off, paddr_t start, paddr_t end, const char *contain
 	return((uintptr_t)as - (uintptr_t)base);
 }
 
-__SRCVERSION("as_find_containing.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/as_find_containing.c $ $Rev: 680332 $")
+#endif

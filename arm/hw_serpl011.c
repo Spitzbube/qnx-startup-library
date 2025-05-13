@@ -115,5 +115,7 @@ put_pl011(int c)
 	out32(base + PL011_DR, c & 0xff);
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/public/bsp/nto650/ti-omap3530-beagle/latest/src/hardware/startup/lib/arm/hw_serpl011.c $ $Rev: 604842 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/hw_serpl011.c $ $Rev: 680332 $")
+#endif

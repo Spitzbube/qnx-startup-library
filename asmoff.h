@@ -92,4 +92,9 @@ VALUE(DEBUG_WATCHDOG_STOP,	DEBUG_WATCHDOG_STOP);
 VALUE(DEBUG_WATCHDOG_CONTINUE,	DEBUG_WATCHDOG_CONTINUE);
 VALUE(DEBUG_WATCHDOG_FEED,	DEBUG_WATCHDOG_FEED);
 
-/* __SRCVERSION("asmoff.h $Rev: 655042 $"); */
+/* __SRCVERSION("asmoff.h $Rev: 680332 $"); */
+
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/asmoff.h $ $Rev: 680332 $")
+#endif

@@ -20,6 +20,8 @@
  * 8250/16x50 polled serial I/O
  */
 
+.syntax unified
+
 #include "callout.ah"
 
 /*
@@ -43,11 +45,11 @@ patch_debug:
 	 * Map registers and patch callout routine
 	 */
 	ldr		r1, [sp, #8]				// debug_device[...]
+	add		r1, r1, #DDI_BASE
 	ldr		r2, [r1, #DDI_SHIFT]
-	ldr		r1, [r1, #DDI_BASE]
 	mov		r0, #REG_LS
 	mov		r0, r0, lsl r2
-	bl		callout_io_map
+	bl		callout_io_map_indirect
 	CALLOUT_PATCH	r4, r0, r1, r2, ip
 
 	/*
@@ -80,8 +82,21 @@ CALLOUT_START(display_char_8250, 0, patch_debug)
 	/*
 	 * Wait for TXRDY
 	 */
+
+	/*
+	 * In SMP system, it happens that someone is writing via this callout while the devc
+	 * is being initialized and the UART controller is temporarily disabled
+	 * For whatever reason while the callout is polling the LSR register while the
+	 * devc driver can't have a chance to be scheduled to enable the UART again, it loops forever
+	 *
+	 * 0x1500 should be enough for a system with 50MHz/9600Baud to putput one character
+	 */
+	mov		r2, #0x1500
 	add		r0, r0, ip
-0:	ldrb	r3, [r0]
+
+0:	subs	r2, r2, #1
+	beq		1f
+	ldrb	r3, [r0]
 	tst		r3, #LSR_TXRDY
 	beq		0b
 
@@ -90,6 +105,7 @@ CALLOUT_START(display_char_8250, 0, patch_debug)
 	 */
 	strb	r1, [ip]
 
+1:
 	mov		pc, lr
 CALLOUT_END(display_char_8250)
 
@@ -116,7 +132,7 @@ CALLOUT_START(poll_key_8250, 0, patch_debug)
 	add		r0, r0, ip
 0:	ldrb	r3, [r0]
 	tst		r3, #LSR_RXRDY
-	ldrneb	r0, [ip]
+	ldrbne	r0, [ip]
 	mvneq	r0, #1
 
 	mov		pc, lr
@@ -157,3 +173,12 @@ CALLOUT_START(break_detect_8250, 0, patch_debug)
 	mov		r0, #1
 	mov		pc, lr
 CALLOUT_END(break_detect_8250)
+
+
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/callout_debug_8250.S $ $Rev: 786023 $";
+.previous
+#endif
+#endif 

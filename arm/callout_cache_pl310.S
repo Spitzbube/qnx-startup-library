@@ -70,9 +70,9 @@ patcher:
 	orr		r1, r1, ip
 	str		r1, [r2, #4]			// patched 2nd instruction
 
-	ldr		r1, [sp, #8]			// patch_data = L2 controller base address
 	mov		r0, #0x1000				// 4K register size
-	bl		callout_io_map
+	ldr		r1, =pl310_base
+	bl		callout_io_map_armv7_dev
 	str		r0, [r4, #OFF_L2CC]
 
 	ldmia	sp!,{r4,pc}
@@ -90,6 +90,8 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	orr		ip, ip, #0x0000ff00
 	ldr		r3, [sp]
 	add		ip, r3, ip				// address of RW data	
+
+	stmdb	sp!,{r4,r5,lr}
 
 	/*
 	 * Trim the address to a cache line boundary
@@ -110,6 +112,7 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	cmp		r0, r1
 	movgt	r0, r1
 
+	mrs		r5, cpsr				// snapshot of current interrupt enable state
 	cpsid	i
 	mcr		p15, 0, r2, c7, c8, 0	// VA2PA for privileged read access
 	mrc		p15, 0, r2, c7, c4, 0	// get physical address/attributes
@@ -147,18 +150,12 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	/*
 	 * Clear spin lock
 	 */
-	dmb
-	str		r1, [ip]
-	dsb
-	sev
-1:	cpsie	i
-	mov		pc, lr
+	b		3f
 
 2:
 	/*
 	 * Trim number of lines to end of page containing addr
 	 */
-	stmdb	sp!,{r4,lr}
 	mov		r2, r0
 	mov		r4, r0
 	mov		r0, r0, asl #20
@@ -168,6 +165,7 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	cmp		r0, r1
 	movgt	r0, r1
 
+	mrs		r5, cpsr				// snapshot of current interrupt enable state
 	cpsid	i
 	mcr		p15, 0, r2, c7, c8, 0	// VA2PA for privileged read access
 	mrc		p15, 0, r2, c7, c4, 0	// get physical address/attributes
@@ -188,7 +186,7 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	strexeq	r1, r3, [ip]
 	teqeq	r1, #0
 	bne		0b
-	dmb
+	dsb   //errata 764369
 
 	/*
 	 * Clean and invalidate lines:
@@ -213,10 +211,18 @@ CALLOUT_START(cache_pl310, rw_data, patcher)
 	/*
 	 * Clear spin lock
 	 */
-	dmb
+3:	dmb
 	str		r1, [ip]
 	dsb
 	sev
-1:	cpsie	i
-	ldmia	sp!,{r4,pc}	
+1:	msr		cpsr, r5
+	ldmia	sp!,{r4,r5,pc}
 CALLOUT_END(cache_pl310)
+
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/callout_cache_pl310.S $ $Rev: 781278 $";
+.previous
+#endif
+#endif 

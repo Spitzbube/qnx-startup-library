@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,20 +19,24 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
 
 uintptr_t
 callout_io_map(unsigned size, paddr_t phys)
 {
 	/*
-	 * FIXME: this should check whether the range is already mapped
+	 * Map using Strongly Ordered memory attribute.
+	 *
+	 * This is used for compatibility with code that does not use explicit
+	 * barriers around I/O accesses, but it has a performance impact.
+	 * 
+	 * Code explicitly written for ARMv7 using the appropriate barriers can
+	 * use callout_io_map_armv7_dev() instead to use the Device attribute.
 	 */
-	return arm_map(~0, phys, size, ARM_PTE_RW);
+	return mmu_map(~0, phys, size, PROT_READ|PROT_WRITE|PROT_DEVICE|PROT_NOCACHE);
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/map_callout_io.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/map_callout_io.c $ $Rev: 781531 $")
+#endif

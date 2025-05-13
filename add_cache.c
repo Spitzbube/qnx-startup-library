@@ -79,6 +79,7 @@ add_cache(int next, unsigned flags, unsigned line_size, unsigned num_lines,
 	return add_cache_ways(next, flags, line_size, num_lines, 0, rtn);
 }
 
-
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/add_cache.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/add_cache.c $ $Rev: 680332 $")
+#endif

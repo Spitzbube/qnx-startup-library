@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
+ * Copyright 2015, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,10 +19,6 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
 
 /*
@@ -40,16 +36,12 @@ cpu_startup()
 	 */
 	chip = armv_chip_detect();
 	if (chip) {
-		unsigned	bits = chip->mmu_cr_set & (ARM_MMU_CR_I | ARM_MMU_CR_Z);
-		unsigned	mmucr;
-
-		if (bits) {
-			__asm__ __volatile__("mrc	p15, 0, %0, c1, c0, 0" : "=r" (mmucr));
-			__asm__ __volatile__("mcr	p15, 0, %0, c1, c0, 0" : : "r" (mmucr | bits));
-		}
+		arm_sctlr_set(arm_sctlr_get() | ARM_SCTLR_I | ARM_SCTLR_Z);
 	}
 	board_cpu_startup();
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/cpu_startup.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/cpu_startup.c $ $Rev: 782220 $")
+#endif

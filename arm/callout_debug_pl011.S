@@ -22,6 +22,8 @@
  * This should be usable by any board that uses a PrimeCell UART.
  */
 
+.syntax unified
+
 #include "callout.ah"
 #include <arm/pl011.h>
 
@@ -46,9 +48,9 @@ patch_debug:
 	 * Map registers
 	 */
 	ldr		r1, [sp, #8]				// debug_device[...]
-	ldr		r1, [r1, #DDI_BASE]
-	mov		r0, #16						// FIXME
-	bl		callout_io_map
+	add		r1, r1, #DDI_BASE
+	mov		r0, #16			
+	bl		callout_io_map_indirect
 
 	/*
 	 * Patch the callout routine
@@ -89,7 +91,7 @@ CALLOUT_START(poll_key_pl011, 0, patch_debug)
 
 0:	ldrb	r3, [ip, #PL011_FR]
 	tst		r3, #PL011_FR_RXFE
-	ldreqb	r0, [ip, #PL011_DR]
+	ldrbeq	r0, [ip, #PL011_DR]
 	mvnne	r0, #1
 
 	mov		pc, lr
@@ -105,9 +107,14 @@ CALLOUT_START(break_detect_pl011, 0, patch_debug)
 	orr		ip, ip, #0x0000ff00
 	orr		ip, ip, #0x00ff0000
 	orr		ip, ip, #0xff000000
-	/*
-	 * FIXME: need to implement
-	 */
 	mov		r0, #0
 	mov		pc, lr
 CALLOUT_END(break_detect_pl011)
+
+#ifdef __QNXNTO__
+#ifdef __USESRCVERSION
+.section .ident, "SM",%progbits,1;
+.asciz "$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/callout_debug_pl011.S $ $Rev: 786023 $";
+.previous
+#endif
+#endif 

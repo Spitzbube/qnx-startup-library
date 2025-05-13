@@ -1,6 +1,6 @@
 /*
  * $QNXLicenseC:
- * Copyright 2012, QNX Software Systems. 
+ * Copyright 2013, QNX Software Systems. 
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"). You 
  * may not reproduce, modify or distribute this software except in 
@@ -19,11 +19,8 @@
  * $
  */
 
-
-
-
-
 #include "startup.h"
+
 
 void
 hwi_add_nanospin(unsigned long hundred_loop_time, unsigned long overhead)
@@ -35,4 +32,9 @@ hwi_add_nanospin(unsigned long hundred_loop_time, unsigned long overhead)
 	tag->nanospin.overhead = overhead;
 }
 
-__SRCVERSION( "$URL$ $REV$" )
+
+
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/hwi_add_nanospin.c $ $Rev: 756962 $")
+#endif

@@ -46,33 +46,33 @@
 
 /* Information about individual bootable executables */
 struct restore_ifs_elf {
-	unsigned long		offset;		/* Offset of writeable elf data region from the start of the IFS */
-	unsigned long		size;		/* Size of writeable elf data */
-	paddr32_t			data;		/* Location to store elf data for compressed images only (must be in 1-to-1 mapping region) */
+	uint32_t	offset;		/* Offset of writeable elf data region from the start of the IFS */
+	uint32_t	size;		/* Size of writeable elf data */
+	paddr_t		data;		/* Location to store elf data for compressed images only (must be in 1-to-1 mapping region) */
 };
 
 /* IFS information stored persistently across boots */
 struct restore_ifs_info {
-	char					signature[8];	/* Signature of this data structure */
-	unsigned long			cksum;			/* Checksum for this data structure */
-	unsigned long			image_size;		/* Size of the IFS used for checksum */	
+	char		signature[8];	/* Signature of this data structure */
+	uint32_t 	cksum;			/* Checksum for this data structure */
+	uint32_t	image_size;		/* Size of the IFS used for checksum */	
 	struct restore_ifs_elf	elfinfo[RIFS_MAX_BOOTABLE];	/* ELF info for each bootable executable */
-	unsigned long			numboot;		/* Number of bootable executables in IFS */	
+	uint32_t	numboot;		/* Number of bootable executables in IFS */	
 };
 
 /* IFS2 (non-bootable) information stored persistently across boots */
 struct restore_ifs2_info {
-	char					signature[8];	/* Signature of this data structure */
-	unsigned long			cksum;			/* Checksum for this data structure */
-	unsigned long			image_size;		/* Size of the IFS used for checksum */	
+	char		signature[8];	/* Signature of this data structure */
+	uint32_t	cksum;			/* Checksum for this data structure */
+	uint32_t	image_size;		/* Size of the IFS used for checksum */	
 };
 
 #include _NTO_HDR_(_packpop.h)
 
 /* Function prototypes */
 void rifs_set_cksum(struct image_header *ifs_hdr);
-int rifs_save_elf32data(paddr32_t addr, union image_dirent *dir, int numboot);
-int rifs_restore_ifs(paddr32_t ifs_paddr);
+int rifs_save_elf32data(paddr_t addr, union image_dirent *dir, int numboot);
+int rifs_restore_ifs(paddr_t ifs_paddr);
 void load_ifs2_nonbootable(void);
 int rifs_load_ifs2(void);
 int rifs_restore_ifs2(void);
@@ -80,11 +80,16 @@ int rifs_restore_ifs2(void);
 extern struct restore_ifs_info 		*rifs_info;
 extern struct restore_ifs2_info 	*rifs2_info;
 extern unsigned 					rifs_flag;
-extern paddr32_t 					ifs2_paddr_src;
-extern paddr32_t 					ifs2_paddr_dst;
+extern paddr_t 					ifs2_paddr_src;
+extern paddr_t 					ifs2_paddr_dst;
 extern unsigned 					ifs2_size;
 extern unsigned 					mdriver_cksum_max;
 
 #endif 
 
-/* __SRCVERSION("restore_ifs.h $Rev: 655042 $"); */
+/* __SRCVERSION("restore_ifs.h $Rev: 780356 $"); */
+
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/restore_ifs.h $ $Rev: 780356 $")
+#endif

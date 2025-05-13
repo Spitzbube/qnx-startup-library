@@ -27,12 +27,12 @@
 
 void
 startnext() {
-	uintptr_t eip = lsp.system_private.p->boot_pgm[0].entry;
+	uintptr_t const eip = first_bootstrap_start_vaddr;
 
 	if(debug_flag) {
-		kprintf("\nSystem page at phys:%l user:%l kern:%l\n", (paddr32_t)syspage_paddr,
+		kprintf("\nSystem page at phys:%P user:%v kern:%v\n", (paddr_t)syspage_paddr,
 			lsp.system_private.p->user_syspageptr, lsp.system_private.p->kern_syspageptr);
-		kprintf("Starting next program at v%l\n", eip);
+		kprintf("Starting next program at v%v\n", eip);
 	}
 	if(eip == ~(uintptr_t)0) {
 		crash("No next program to start\n");
@@ -40,4 +40,7 @@ startnext() {
 	cpu_startnext(eip, 0);
 }
 
-__SRCVERSION("startnext.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/startnext.c $ $Rev: 780356 $")
+#endif

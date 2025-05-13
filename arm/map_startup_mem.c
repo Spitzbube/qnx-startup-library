@@ -28,7 +28,12 @@
 void *
 startup_memory_map(unsigned size, paddr_t phys, unsigned prot_flags)
 {
-	return((void *)phys);
+	uintptr_t	pa = (uintptr_t)phys;
+
+	if ((paddr_t)pa != phys) {
+		crash("startup_memory_map: paddr is out of range\n");
+	}
+	return((void *)pa);
 }
 
 void
@@ -36,5 +41,7 @@ startup_memory_unmap(void *p)
 {
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/map_startup_mem.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/map_startup_mem.c $ $Rev: 781278 $")
+#endif

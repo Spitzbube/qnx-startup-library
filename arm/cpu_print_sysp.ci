@@ -48,22 +48,20 @@ CPU_PRT_SYSPAGE_RTN(ARM, arm, 1, cpu),
 static void
 arm_print_boxinfo(void) {
 	struct arm_boxinfo_entry *box = _SYSPAGE_CPU_ENTRY(PSP_SYSPAGE,arm,boxinfo);
-
-	kprintf("  hw_flags:%l\n", box->hw_flags);
+	kprintf("  hw_flags:%x\n", PSP_NATIVE_ENDIAN32(box->hw_flags));
 }
 
 
 static void
 arm_print_cpu(void) {
 	struct arm_cpu_entry *cpu = _SYSPAGE_CPU_ENTRY(PSP_SYSPAGE,arm,cpu);
-
-	kprintf("  page_flush:%l page_flush_deferred:%l\n", cpu->page_flush, cpu->page_flush_deferred);
-	kprintf("  upte_ro:%l upte_rw:%l\n", cpu->upte_ro, cpu->upte_rw);
-	kprintf("  kpte_ro:%l kpte_rw:%l\n", cpu->kpte_ro, cpu->kpte_rw);
-	kprintf("  mask_nc:%l\n", cpu->mask_nc);
-	kprintf("  ttb_attr:%l pte_attr=%l\n", cpu->ttb_attr, cpu->pte_attr);
+	kprintf("  page_flush:%x page_flush_deferred:%x\n", PSP_NATIVE_ENDIAN32((uint32_t)cpu->page_flush), PSP_NATIVE_ENDIAN32((uint32_t)cpu->page_flush_deferred));
+	kprintf("  upte_ro:%w upte_rw:%w\n", PSP_NATIVE_ENDIAN16(cpu->upte_ro), PSP_NATIVE_ENDIAN16(cpu->upte_rw));
+	kprintf("  kpte_ro:%w kpte_rw:%w\n", PSP_NATIVE_ENDIAN16(cpu->kpte_ro), PSP_NATIVE_ENDIAN16(cpu->kpte_rw));
+	kprintf("  mask_nc:%w\n", PSP_NATIVE_ENDIAN16(cpu->mask_nc));
+	kprintf("  ttb_attr:%w pte_attr=%w\n", PSP_NATIVE_ENDIAN16(cpu->ttb_attr), PSP_NATIVE_ENDIAN16(cpu->pte_attr));
 #if defined(PSP_STARTUP)	
-	kprintf("  mmu_cr1:%l set:%l clr:%x -> %l\n", arm_mmu_getcr(), mmu_cr_set, mmu_cr_clr, (arm_mmu_getcr() & ~mmu_cr_clr) | mmu_cr_set);
+	kprintf("  sctlr:%x set:%x clr:%x -> %x\n", arm_sctlr_get(), sctlr_set, sctlr_clr, (arm_sctlr_get() & ~sctlr_clr) | sctlr_set);
 #endif	
 }
 

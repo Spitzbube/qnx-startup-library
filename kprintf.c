@@ -67,7 +67,10 @@ vmsg(const char *fmt, va_list args) {
 			radix = 16;
 			break;
 		case 'x':
-		case 'X':
+			num = va_arg(args, unsigned);
+			dig = sizeof(unsigned)*2;
+			radix = 16;
+			break;
 		case 'l':
 			num = va_arg(args, unsigned long);
 			dig = sizeof(unsigned long)*2;
@@ -76,6 +79,11 @@ vmsg(const char *fmt, va_list args) {
 		case 'L':
 			num = va_arg(args, uint64_t);
 			dig = sizeof(uint64_t)*2;
+			radix = 16;
+			break;
+		case 'v':/* abbreviated hex */
+			num = va_arg(args, uintptr_t);
+			dig = sizeof(uintptr_t)*2;
 			radix = 16;
 			break;
 		case 'd':
@@ -160,4 +168,7 @@ get_print_char(void))(int) {
 	return print_char;
 }
 
-__SRCVERSION("kprintf.c $Rev: 655042 $");
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/kprintf.c $ $Rev: 780356 $")
+#endif

@@ -30,11 +30,13 @@
 #define PSP_SPRINTF			ksprintf
 #define PSP_VERBOSE(lvl)	(debug_flag > (lvl))
 
-#define PSP_NATIVE_ENDIAN16(v)	(v)
-#define PSP_NATIVE_ENDIAN32(v)	(v)
-#define PSP_NATIVE_ENDIAN64(v)	(v)
-#define PSP_NATIVE_ENDIANPTR(v)	(v)
+#define PSP_NATIVE_ENDIAN16(v)		(v)
+#define PSP_NATIVE_ENDIAN32(v)		(v)
+#define PSP_NATIVE_ENDIAN64(v)		(v)
+#define PSP_NATIVE_ENDIANPTR(b,f)	((b)->f)
 
 #endif
 
 #include "cpu_print_sysp.ci"
+
+/* NOTE: don't include SRCVERSION, or it will cause print_sysp.c to fail compilation. */

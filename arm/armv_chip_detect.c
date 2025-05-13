@@ -19,9 +19,6 @@
  * $
  */
 
-
-
-
 #include "startup.h"
 
 const struct armv_chip	*armv_chip;
@@ -37,22 +34,21 @@ armv_chip_detect()
 		return armv_chip;
 	}
 
-	/*
-	 * Read CP15 ID register
-	 */
-	cpuid = arm_mmu_cpuid();
+	cpuid = arm_midr_get();
 
 	for (cp = armv_list; (chip = *cp) != 0; cp++) {
 		if (chip->cpuid == (cpuid & 0xfff0)) {
 			break;
 		}
 	}
-	if (chip && chip->name == 0 && chip->detect) {
+	if (chip && chip->detect) {
 		chip = chip->detect();
 	}
 	armv_chip = chip;
 	return chip;
 }
 
-
-__SRCVERSION( "$URL: http://svn/product/tags/restricted/bsp/nto650/ti-omap4430-panda/latest/src/hardware/startup/lib/arm/armv_chip_detect.c $ $Rev: 655042 $" );
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/arm/armv_chip_detect.c $ $Rev: 782220 $")
+#endif

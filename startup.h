@@ -1,28 +1,26 @@
 /*
  * $QNXLicenseC:
- * Copyright 2008, QNX Software Systems. 
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"). You 
- * may not reproduce, modify or distribute this software except in 
- * compliance with the License. You may obtain a copy of the License 
- * at: http://www.apache.org/licenses/LICENSE-2.0 
- * 
- * Unless required by applicable law or agreed to in writing, software 
- * distributed under the License is distributed on an "AS IS" basis, 
+ * Copyright 2014, QNX Software Systems.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"). You
+ * may not reproduce, modify or distribute this software except in
+ * compliance with the License. You may obtain a copy of the License
+ * at: http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" basis,
  * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
  *
- * This file may contain contributions from others, either as 
- * contributors under the License or as licensors under other terms.  
- * Please review this entire file for other proprietary rights or license 
- * notices, as well as the QNX Development Suite License Guide at 
+ * This file may contain contributions from others, either as
+ * contributors under the License or as licensors under other terms.
+ * Please review this entire file for other proprietary rights or license
+ * notices, as well as the QNX Development Suite License Guide at
  * http://licensing.qnx.com/license-guide/ for other information.
  * $
  */
 
-
-
-
-
+#ifndef _STARTUP_H_INCLUDED
+#define _STARTUP_H_INCLUDED
 
 //
 // Other includes which most everyone needs
@@ -39,23 +37,63 @@
 #include <sys/image.h>
 #include <sys/startup.h>
 #include <sys/neutrino.h>
+#define SYSPAGE_SIZED_ARRAYS
+
+#if __PTR_BITS__ > 32
+/* If we're on a 64 bit system, include all the architecture targets
+ * so that we have access to the cpu feature flags for the 32 bit version
+ * of the architecture
+ */
+#define SYSPAGE_TARGET_ALL
+#endif
+
 #include <sys/syspage.h>
 #include <sys/elf.h>
 #include <hw/sysinfo.h>
 #include <confname.h>
 
+#if __PTR_BITS__+0 == 32
+#define PADDR_T  paddr32_t
+#else
+#define PADDR_T paddr_t
+#endif
 
 #define PROCESSORS_MAX	32	// set this to match kernel (at least a search will find this now)
 
 /* this ASSERT is intentionally meant to not be conditionally implemented */
-#define ASSERT(_c_) \
+#define _ASSERT(_c_, _extra_text_) \
 		do { \
 			if (!(_c_)) \
 			{ \
 				const char *s = strrchr(__FILE__, '/'); \
-				crash("%s:%d -- ASSERT(%s) failed!\n", (s != NULL) ? s + 1 : __FILE__, __LINE__, #_c_); \
+				const char * const msg = (_extra_text_); /* for when _extra_text_ is a function call */ \
+				crash("%s:%d -- ASSERT(%s) failed!\n%s", \
+						(s != NULL) ? s + 1 : __FILE__, __LINE__, #_c_, (msg != NULL) ? msg : "\n"); \
 			} \
 		} while(0)
+#define ASSERT(_c_)		_ASSERT(_c_, NULL)
+
+/*
+ * if alloca() fails, un-comment the TRACE_ALLOCA macro and clean compile
+ * startup/lib if you want to see exactly where alloca()'s are coming from
+ * and by how much the request exceeded the available stack space
+ */
+//#define TRACE_ALLOCA
+#ifdef TRACE_ALLOCA
+/*
+ * ALLOCA macro wraps alloca() and asserts if allocation will be outside the
+ * stack.
+ * Implemented as it is so that the assertion can be done in the context of the
+ * allocator/offender
+ */
+extern void *__alloca_tmp;
+extern const char * const blown_startup_stack(const size_t req_sz, const uintptr_t sp);
+#define ALLOCA(_sz_) \
+		(__alloca_tmp = alloca(_sz_)); \
+		_ASSERT(__alloca_tmp != NULL, blown_startup_stack(_sz_, rdsp()))
+#else
+#define ALLOCA(_sz_)	alloca(_sz_)
+#endif
 
 #define SYSPAGE_TYPED_SECTION(type, field)	\
 		struct field##_section {			\
@@ -67,7 +105,7 @@
 
 struct callout_rtn {
 	unsigned	*rw_size;
-	void		(*patcher)(paddr32_t paddr, uintptr_t vaddr, unsigned rtn_offset, unsigned rw_offset, void *data, const struct callout_rtn *src);
+	void		(*patcher)(PADDR_T paddr, uintptr_t vaddr, unsigned rtn_offset, unsigned rw_offset, void *data, const struct callout_rtn *src);
 	unsigned	rtn_size;
 	uint8_t		rtn_code[1];
 };
@@ -84,7 +122,7 @@ struct callout_slot {
 #include "restore_ifs.h"
 
 #if !defined(MAKE_1TO1_PTR)
-	#define MAKE_1TO1_PTR(p)	((void *)((p) + shdr->paddr_bias))
+	#define MAKE_1TO1_PTR(p)	((void *)((uintptr_t)(p) + shdr->paddr_bias))
 #endif
 
 #ifndef __PAGESIZE
@@ -102,9 +140,8 @@ struct callout_slot {
 //
 // Defines
 //
-#define NULL_PADDR		(~(paddr_t)0)
-#define NULL_PADDR32	(~(paddr32_t)0)
-#define MAX_PADDR32     (0xffffffff)
+#define NULL_PADDR			(~(paddr_t)0)
+#define NULL_PADDR_STARTUP	(~(PADDR_T)0)
 
 #define TRUNC(_x,_a)  ((paddr_t)(_x) &~ (((paddr_t)(_a))-1))
 #define ROUND(_x,_a)  TRUNC(((paddr_t)(_x)) + ((paddr_t)(_a)-1), (paddr_t)(_a))
@@ -122,7 +159,7 @@ struct callout_slot {
 
 #define NUM_ELTS(__array)	(sizeof(__array)/sizeof(__array[0]))
 
-#define COMMON_OPTIONS_STRING   CPU_COMMON_OPTIONS_STRING "AD:F:f:I:i:K:M:N:o:P:R:S:Tvr:j:Z"
+#define COMMON_OPTIONS_STRING   CPU_COMMON_OPTIONS_STRING "ACD:F:f:I:i:K:M:N:o:P:R:S:Tvr:j:ZH"
 
 struct local_syspage {
 	SYSPAGE_SECTION(syspage);
@@ -152,6 +189,13 @@ struct debug_device {
 	const struct callout_rtn	*callouts[3];
 };
 
+#define DEBUG_DEV_CONSOLE	0
+#define DEBUG_DEV_KDEBUG	1
+
+#define DEBUG_DISPLAY_CHAR	0
+#define DEBUG_POLL_KEY		1
+#define DEBUG_BREAK_DETECT	2
+
 /*
  *NOTE: The first part has to match one-to-one with struct intrinfo_entry
  *      on the syspage (aside from the type of the function pointers changing).
@@ -174,8 +218,8 @@ struct startup_intrinfo {
 	struct callout_rtn		*mask;
 	struct callout_rtn		*unmask;
 	struct callout_rtn		*config;
-	/* End of struct intrinfo_entry match */
 	void					*patch_data;
+	uint32_t				local_stride;
 };
 
 typedef void	(*output_callout_t(int))(int);
@@ -187,7 +231,7 @@ typedef struct {
 
 
 #ifdef __STRICT_PROTYPES__
-/* 
+/*
  * This really isn't correct, since there is no 'one' signature for a callout fp,
  * but this silences the compiler's complaints for those who really must compile with
  * -fstrict-prototypes
@@ -196,7 +240,7 @@ typedef void (*callout_fp_t)(void);
 #else
 typedef void (*callout_fp_t)();
 #endif
-typedef unsigned (cache_rtn)(paddr32_t, unsigned, int, struct cacheattr_entry *, volatile struct syspage_entry *);
+typedef __cache_rtn	cache_rtn;
 
 //
 // Function prototypes
@@ -235,14 +279,25 @@ void init_mmu(void);
 //
 void cpu_startup(void);
 void cpu_one_startup(int __cpu);
-void cpu_init_syspage_memory(void);	
-struct syspage_entry *cpu_alloc_syspage_memory(paddr32_t *, paddr32_t *, unsigned);
-void cpu_write_syspage_memory(paddr32_t, unsigned, unsigned);
-void cpu_print_callout(struct callout_entry *call); 
+void cpu_init_syspage_memory(void);
+struct syspage_entry *cpu_alloc_syspage_memory(PADDR_T *, PADDR_T *, unsigned);
+void cpu_write_syspage_memory(PADDR_T, unsigned, unsigned);
+void cpu_print_callout(struct callout_entry *call);
 void cpu_startnext(uintptr_t eip,unsigned cpu);
-void elf_map(uintptr_t vaddr, paddr32_t paddr,size_t size,int flags);
+
+
+int	is_elf(paddr_t addr);
+int	is_elf32(paddr_t addr);
+int	is_elf64(paddr_t addr);
+uintptr_t load_elf(paddr_t addr);
+
+void elf_map(uintptr_t vaddr, PADDR_T paddr,size_t size,int flags);
 paddr_t elf_vaddr_to_paddr(uintptr_t vaddr);
+
 uintptr_t load_elf32(paddr32_t addr);
+
+uintptr_t load_elf64(paddr_t addr);
+
 void startnext(void);
 
 extern struct callout_rtn	cache_dummy;
@@ -251,10 +306,10 @@ extern struct callout_rtn	cache_dummy;
 // These are CPU/board independent routines that can be used 'as is'.
 //
 void init_system_private(void);
-void load_ifs(paddr32_t);
+void load_ifs(paddr_t);
 struct pminfo_entry *init_pminfo(unsigned managed_size);
 
-void copy_memory(paddr32_t dst, paddr32_t src, size_t len);
+void copy_memory(PADDR_T dst, PADDR_T src, size_t len);
 
 paddr_t strtopaddr(const char *nptr, char **endptr, int base);
 unsigned calc_cksum(const void *start, unsigned nbytes);
@@ -275,7 +330,7 @@ void * add_callout(unsigned offset, const struct callout_rtn *callout);
 void callout_output_one(int sizing, void *rp);
 unsigned output_callouts(int sizing);
 void callout_register_data(void *rp, void *data);
-void callout_reloc_data(void *base, unsigned len, int diff);
+void callout_reloc_data(void *base, unsigned len, ptrdiff_t diff);
 
 unsigned long timer_ns2tick(unsigned long ns);
 unsigned long timer_tick2ns(unsigned long ticks);
@@ -297,18 +352,20 @@ struct qtime_entry * alloc_qtime(void);
 
 void		*ws_alloc(size_t);
 void 		add_sysram(void);
-void		avoid_ram(paddr32_t, size_t size);
+void		avoid_ram(PADDR_T, size_t size);
 void 		add_ram(paddr_t start, paddr_t size);
 void		watch_add_ram(void (*)(paddr_t, paddr_t));
 paddr_t		alloc_ram(paddr_t addr, paddr_t size, unsigned align);
 paddr_t		find_top_ram(paddr_t size);
 paddr_t		find_top_ram_aligned(paddr_t size, unsigned align,
                                      unsigned pagesize);
+int			init_raminfo_uefi(void);
 paddr_t     find_ram_in_range(paddr_t range_start, paddr_t range_end, size_t size,
                               unsigned align, unsigned colour, unsigned mask);
-paddr32_t	find_ram(size_t size, unsigned align, unsigned colour, unsigned mask);
-paddr32_t	calloc_ram(size_t size, unsigned align);
+PADDR_T	find_ram(size_t size, unsigned align, unsigned colour, unsigned mask);
+PADDR_T	calloc_ram(size_t size, unsigned align);
 void            reserve_ram(unsigned size, unsigned align, unsigned pagesize);
+int         is_addr_in_ram(paddr_t start, size_t size);
 
 int getopt(int argc,char **argv,char *opts);
 int cpu_handle_common_option(int opt);
@@ -323,7 +380,7 @@ struct tm *_gmtime(const time_t *timer,struct tm *tmbuf);
 
 void kprintf(const char *fmt,... );
 void ksprintf(char *buff, const char *fmt,... );
-void crash(const char *fmt,... );
+void crash(const char *fmt,... ) __attribute__((__noreturn__));
 void set_print_char(void (*)(int));
 void (*get_print_char(void))(int);
 void set_debug(unsigned channel, const struct debug_device *dev, const char *options);
@@ -343,8 +400,11 @@ void jtag_store_syspage_addr(void);
 void jtag_reserve_syspage_addr(paddr_t jtag_syspage_addr);
 void jtag_reserve_memory(paddr_t resmem_addr, size_t resmem_size, uint8_t resmem_flag);
 
+paddr_t	acpi_find_table_next(unsigned table_name, unsigned *lenp, paddr_t start_search);
 paddr_t	acpi_find_table(unsigned table_name, unsigned *lenp);
-void 	*board_find_acpi_rsdp(void);
+void *board_find_acpi_rsdp(void);
+void *board_find_acpi_rsdp_bios(void);
+void *board_find_acpi_rsdp_uefi(void);
 
 const void *find_startup_info(const void *start, unsigned type);
 int find_typed_string(int type_index);
@@ -379,6 +439,7 @@ unsigned	hwidev_add(const char *device_name, unsigned pnp, unsigned bus_hwi_off)
 
 /* prototypes for adding tags */
 void		hwitag_add_common(unsigned hwi_off, void *attr);
+void		hwitag_add_optstr(unsigned hwi_off, const char *string);
 void 		hwitag_add_location(unsigned hwi_off, paddr_t base, paddr_t len, unsigned reg_shift, unsigned addr_space);
 void		hwitag_add_busattr(unsigned hwi_off, struct hwi_busattr *attr);
 void 		hwitag_add_irq(unsigned hwi_off, unsigned vector);
@@ -394,6 +455,7 @@ void		hwitag_add_regname(unsigned hwi_off, const char *name, unsigned regoffset)
 int			hwitag_set_nicaddr(unsigned hwi_off, unsigned nic_idx, uint8_t *nic_addr);
 int			hwitag_set_phyaddr(unsigned hwi_off, unsigned phy_idx, uint32_t phy_addr);
 int			hwitag_set_ivec(unsigned hwi_off, unsigned ivec_idx, uint32_t vector);
+int			hwitag_set_dma(unsigned hwi_off, unsigned dma_idx, uint32_t chnl);
 int			hwitag_set_inputclk(unsigned hwi_off, unsigned clksrc_idx, struct hwi_inputclk *clk);
 int			hwitag_set_busattr(unsigned hwi_off, unsigned busattr_idx, struct hwi_busattr *busattr);
 int			hwitag_set_ivecrange(unsigned hwi_off, unsigned ivecrange_idx, unsigned start_vector, unsigned num);
@@ -432,10 +494,12 @@ unsigned			as_find_containing(unsigned off, paddr_t start, paddr_t end, const ch
 extern unsigned		mdriver_max;
 extern void			(*mdriver_check)(void);
 extern void			(*mdriver_hook)(void);
-int 				mdriver_add(char *name, int intr, int (*handler)(int state, void *data), paddr32_t data_paddr, unsigned data_size);
+int 				mdriver_add(char *name, int intr, int (*handler)(int state, void *data), PADDR_T data_paddr, unsigned data_size);
+ptrdiff_t                       cpu_mdriver_map(void);
+void                            *cpu_mdriver_prepare(struct mdriver_entry *md);
+int                                     mini_data(int state, void *data);
 
-
-void uncompress(int type, paddr32_t dst, paddr32_t src);
+void uncompress(int type, PADDR_T dst, PADDR_T src);
 void uncompress_zlib(uint8_t *dst, int *dstlen, uint8_t *src, int srclen, uint8_t *win);
 void uncompress_lzo(uint8_t *dst, uint8_t *src);
 void uncompress_ucl(uint8_t *dst, uint8_t *src);
@@ -462,11 +526,26 @@ void		*callout_memory_map_indirect(unsigned size, paddr_t *phys, unsigned prot_f
 
 #define MISC_FLAG_SUPPRESS_BOOTTIME		0x0001
 
+void    fdt_init(paddr_t);
+void    fdt_asinfo(void);
+int	    init_raminfo_fdt(void);
+unsigned fdt_num_cpu(void);
+
+
+/*
+ * ------------------------------------------------------------------
+ * QVM Hypervisor Support
+ * ------------------------------------------------------------------
+ */
+extern int      in_hvc;
+void            qvm_init(void);
+void            qvm_update(void);
+
 //
 // Variable prototypes
 //
 extern unsigned						paddr_bits;
-extern paddr32_t					syspage_paddr;
+extern PADDR_T						syspage_paddr;
 extern int 							debug_flag;
 extern chip_info					dbg_device[2];
 extern chip_info					timer_chip;
@@ -492,6 +571,11 @@ extern output_callout_t				*callout_output_rtn;
 extern unsigned						misc_flags;
 extern uintptr_t 					boot_vaddr_base;
 extern uintptr_t 					boot_vaddr_end;
+extern int							secure_system;
+extern uintptr_t					first_bootstrap_start_vaddr;
+extern void                         *fdt;
+extern paddr_t                      fdt_paddr;
+extern size_t						fdt_size;
 
 //
 // Debugging I/O routines available for many systems
@@ -506,10 +590,29 @@ extern struct callout_rtn	poll_key_dummy;
 extern struct callout_rtn	break_detect_dummy;
 
 void 						init_8250(unsigned, const char *, const char *);
+void						init_8250_pci(unsigned, const char *, const char *);
+void						init_8250_common(unsigned, unsigned long, unsigned long, unsigned long);
 void 						put_8250(int);
 extern struct callout_rtn	display_char_8250;
 extern struct callout_rtn	poll_key_8250;
 extern struct callout_rtn	break_detect_8250;
+/* MMIO versions of the above */
+extern struct callout_rtn	display_char_8250_mmio;
+extern struct callout_rtn	poll_key_8250_mmio;
+extern struct callout_rtn	break_detect_8250_mmio;
+
+/*
+ * ------------------------------------------------------------------
+ * LINFlexD UART support
+ * ------------------------------------------------------------------
+ */
+
+extern void init_linflexd(unsigned, const char *, const char *);
+extern void put_linflexd(int);
+
+extern struct callout_rtn	display_char_linflexd;
+extern struct callout_rtn	poll_key_linflexd;
+extern struct callout_rtn	break_detect_linflexd;
 
 void 						init_zscc(unsigned, const char *, const char *);
 void 						put_zscc(int);
@@ -527,7 +630,7 @@ extern struct callout_rtn	debug_watchdog_e500;
 
 void 						dummy_print_char(int);
 
-void 						crash_done(void);
+void 						crash_done(void) __attribute__((__noreturn__));
 void						ap_fail(int cpu);
 
 void						board_init(void);
@@ -550,9 +653,42 @@ void pci_write_cfg32(uint8_t bus, uint8_t dev_number, uint8_t func_number, uint8
 
 void init_ringbuffers(const char *name, paddr_t ringbuffer_addr, size_t ringbuffer_size);
 
+/*
+ * QNX GPIO framework support.
+ */
+
+/* Load driver in io-gpio at startup.
+ * Multiple drivers can be registered.
+ * These drivers will be loaded before any other driver as soon as io-gpio starts up.
+ *  - dll:  the DLL to load (example: devgp-loopback.so)
+ *  - args: arguments for the driver (example: verbose)
+ */
+void gpio_add_driver(const char *dll, const char *args);
+
+/* Add native named port in io-gpio at startup.
+ *  - device: name of the device providing the native port (example: loopback)
+ *  - port:   native port number
+ *  - name:   name for port
+ */
+void gpio_add_native_named_port(const char *device, const char *name, unsigned port);
+
+/* Add virtual named port in io-gpio at startup.
+ *  - device: name of the device providing the native port (example: loopback)
+ *  - port:   native port number
+ *  - name:   name for port
+ *  - lsb:    least significant bit
+ *  - msb:    most significant bit
+ */
+void gpio_add_virtual_named_port(const char *device, const char *name, unsigned port, unsigned lsb, unsigned msb);
+
 /* Temp definition until all the header files are caught up 2008/08/20 */
 #ifndef CACHE_FLAG_VIRT_IDX
 	#define CACHE_FLAG_VIRT_IDX 0x800
 #endif
 
-/* __SRCVERSION("startup.h $Rev: 655042 $"); */
+#endif
+
+#if defined(__QNXNTO__) && defined(__USESRCVERSION)
+#include <sys/srcversion.h>
+__SRCVERSION("$URL: http://svn.ott.qnx.com/product/branches/7.0.0/trunk/hardware/startup/lib/startup.h $ $Rev: 818522 $")
+#endif
