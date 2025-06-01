@@ -107,12 +107,15 @@
 #define MB86H60_VIC_ADDRESS         0xf00
 #define MB86H60_VIC_SIZE            0x1000
 
+#define MB86H60_ETH_BASE    0xe4000000
+#define MB86H60_ETH_SIZE            0x2000
+
 /* Never forget to update MB86H60_IRQ_CTRL_IRQMASK in init_intrinfo() */
 #define MB86H60_INTR_TIMER0     5
 #define MB86H60_INTR_UART0      8
 #define MB86H60_INTR_UART1      9
 #define MB86H60_INTR_DMA        20
 #define MB86H60_INTR_USB        21
-
+#define MB86H60_INTR_ETH        22
 
 #endif /* MB86H60_H_ */
