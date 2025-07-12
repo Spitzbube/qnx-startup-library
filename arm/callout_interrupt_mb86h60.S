@@ -135,9 +135,12 @@ CALLOUT_START(interrupt_id_mb86h60, 0, interrupt_patch_mb86h60)
 	orr		r0, r0, r3, lsl r4
 	str		r0, [ip, #MB86H60_VIC_INTENCLEAR]
 
+    /* Excluded from debugging */
     cmp     r4, #MB86H60_INTR_UART0
     beq     1f    
     cmp     r4, #MB86H60_INTR_TIMER0
+    beq     1f
+    cmp     r4, #MB86H60_INTR_ETH
     beq     1f
 
 0:
@@ -198,9 +201,12 @@ CALLOUT_START(interrupt_eoi_mb86h60, 0, interrupt_patch_mb86h60)
 	orr		r2, r2, #0x00ff0000
 	orr		r2, r2, #0xff000000
 
+    /* Excluded from debugging */
     cmp     r4, #MB86H60_INTR_UART0
     beq     1f
     cmp     r4, #MB86H60_INTR_TIMER0
+    beq     1f
+    cmp     r4, #MB86H60_INTR_ETH
     beq     1f
 
     /* Debug the interrupt number and the interrupt mask count */
